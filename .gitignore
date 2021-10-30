@@ -1,0 +1,6 @@
+# Project exclude paths
+/cloud-storage-nov-client/target/
+/cloud-storage-nov-server/target/
+# Project exclude paths
+/cloud-storage-client/target/
+/cloud-storage-server/target/
