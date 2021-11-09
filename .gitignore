@@ -2,3 +2,4 @@
 # Project exclude paths
 /cloud-storage-client/target/
 /cloud-storage-server/target/
+*.txt
