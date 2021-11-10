@@ -2,4 +2,8 @@
 # Project exclude paths
 /cloud-storage-client/target/
 /cloud-storage-server/target/
+/cloud-storage-core/target/
 *.txt
+*.png
+*.jpeg
+*.zip
