@@ -1,11 +1,13 @@
 package ru.postlife.java.lesson3.netty;
 
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandler;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class StringHandler extends SimpleChannelInboundHandler<String> {
+public class ObjectHandler extends SimpleChannelInboundHandler<Object> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
@@ -23,7 +25,8 @@ public class StringHandler extends SimpleChannelInboundHandler<String> {
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, String s) throws Exception {
+    protected void channelRead0(ChannelHandlerContext ctx, Object o) throws Exception {
+        String s = (String) o;
         log.debug("received: {}", s);
         ctx.writeAndFlush("From server: " + s);
         log.debug("send: " + "From server: " + s);

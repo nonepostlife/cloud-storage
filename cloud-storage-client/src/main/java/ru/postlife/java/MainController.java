@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MainController implements Initializable {
 
-    public final static int SOCKET_PORT = 9979;
+    public final static int SOCKET_PORT = 9190;
     public final static String SERVER = "127.0.0.1";
 
     private Path clientDir;
