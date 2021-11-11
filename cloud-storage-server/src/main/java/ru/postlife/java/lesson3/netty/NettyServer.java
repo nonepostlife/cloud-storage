@@ -10,8 +10,6 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -33,10 +31,9 @@ public class NettyServer {
                             channel.pipeline().addLast(
                                     new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
                                     new ObjectEncoder(),
-                                    new ObjectHandler(),
-                                    new StringDecoder(),
-                                    new StringEncoder(),
-                                    new StringHandler()
+                                    new FileListModelHandler(),
+                                    new FileModelHandler(),
+                                    new ObjectHandler()
                             );
                         }
                     });
