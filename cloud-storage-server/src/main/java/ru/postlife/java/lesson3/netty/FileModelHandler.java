@@ -35,12 +35,7 @@ public class FileModelHandler extends SimpleChannelInboundHandler<FileModel> {
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        log.debug("Client connected...");
-    }
-
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        log.debug("Client disconnected...");
+        log.debug("Client upload file...");
     }
 
     @Override
@@ -52,7 +47,6 @@ public class FileModelHandler extends SimpleChannelInboundHandler<FileModel> {
             fos = new FileOutputStream(file.toFile());
             log.debug("download file: {}", fileName);
             log.debug("open stream for receive file  \"{}\"", o.getFileName());
-
         }
 
         fos.write(o.getData(), 0, o.getBatchLength());

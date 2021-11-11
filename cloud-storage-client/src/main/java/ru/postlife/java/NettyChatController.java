@@ -2,12 +2,11 @@ package ru.postlife.java;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -25,6 +24,9 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import ru.postlife.java.model.FileListModel;
 import ru.postlife.java.model.FileModel;
+import ru.postlife.java.model.FileRequestModel;
+
+import static java.nio.file.StandardWatchEventKinds.*;
 
 @Slf4j
 public class NettyChatController implements Initializable {
@@ -136,6 +138,10 @@ public class NettyChatController implements Initializable {
         thread.setDaemon(true);
         thread.start();
 
+        WatchService watchService = FileSystems.getDefault().newWatchService();
+        runAsync(watchService);
+        clientDir.register(watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
+
         FileListModel files = new FileListModel(new ArrayList<>());
         os.writeObject(files);
         os.flush();
@@ -150,7 +156,6 @@ public class NettyChatController implements Initializable {
     private void read() {
         while (true) {
             Object obj = is.readObject();
-
             log.debug("receive object {}", obj);
 
             if (obj.getClass() == FileListModel.class) {
@@ -163,8 +168,43 @@ public class NettyChatController implements Initializable {
                 log.debug("files on server: {}", files);
                 continue;
             }
+            if (obj.getClass() == FileModel.class) {
+                FileModel model = (FileModel) obj;
+                String fileName = model.getFileName();
+                Path file = clientDir.resolve(fileName);
+
+                try (FileOutputStream fos = new FileOutputStream(file.toFile())) {
+                    log.debug("try download file: {}", fileName);
+                    log.debug("open stream for receive file  \"{}\"", fileName);
+
+                    while (true) {
+                        fos.write(model.getData(), 0, model.getBatchLength());
+                        log.debug("received: {} batch {}/{}", fileName, model.getCurrentBatch(), model.getCountBatch());
+                        model = (FileModel) is.readObject();
+                        if (model.getCurrentBatch() == model.getCountBatch()) {
+                            fos.write(model.getData(), 0, model.getBatchLength());
+                            log.debug("received: {} batch {}/{}", fileName, model.getCurrentBatch(), model.getCountBatch());
+                            break;
+                        }
+                    }
+
+                    log.debug("close stream for receive file \"{}\"", fileName);
+                    log.debug("download file {} is success", fileName);
+                } catch (Exception e) {
+                    log.error("e", e);
+                }
+                Platform.runLater(() -> {
+                    try {
+                        clientView.getItems().clear();
+                        clientView.getItems().addAll(getFiles(clientDir));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+                continue;
+            }
             if (obj.getClass() == String.class) {
-                String msg = (String) is.readObject();
+                String msg = (String) obj;
                 log.debug("Received: {}", msg);
                 Platform.runLater(() -> {
                     Alert alert = new Alert(Alert.AlertType.INFORMATION);
@@ -188,7 +228,7 @@ public class NettyChatController implements Initializable {
     }
 
     public void sendFile(ActionEvent actionEvent) throws IOException {
-        sendFile(input.getText());
+        sendFile(clientView.getSelectionModel().getSelectedItem());
     }
 
     public void sendFile(String fileName) throws IOException {
@@ -231,7 +271,43 @@ public class NettyChatController implements Initializable {
         os.flush();
     }
 
-    public void upload(ActionEvent actionEvent) {
+    public void upload(ActionEvent actionEvent) throws IOException {
+        upload(serverView.getSelectionModel().getSelectedItem());
+    }
 
+    public void upload(String fileName) throws IOException {
+        FileRequestModel requestModel = new FileRequestModel(fileName);
+        os.writeObject(requestModel);
+        os.flush();
+    }
+
+    private void runAsync(WatchService watchService) {
+        Thread thread = new Thread(() -> {
+            System.out.println("Watch service starts listening");
+            try {
+                while (true) {
+                    WatchKey watchKey = watchService.take();
+                    List<WatchEvent<?>> events = watchKey.pollEvents();
+                    for (WatchEvent<?> event : events) {
+                        System.out.println(event.kind() + " " + event.context());
+                        if (event.kind() == ENTRY_DELETE) {
+                            Platform.runLater(() -> {
+                                try {
+                                    clientView.getItems().clear();
+                                    clientView.getItems().addAll(getFiles(clientDir));
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            });
+                        }
+                    }
+                    watchKey.reset();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+        thread.setDaemon(true);
+        thread.start();
     }
 }

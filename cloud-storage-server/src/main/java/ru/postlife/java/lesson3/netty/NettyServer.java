@@ -11,6 +11,7 @@ import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import lombok.extern.slf4j.Slf4j;
+import ru.postlife.java.model.FileRequestModel;
 
 @Slf4j
 public class NettyServer {
@@ -32,6 +33,7 @@ public class NettyServer {
                                     new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
                                     new ObjectEncoder(),
                                     new FileListModelHandler(),
+                                    new FileRequestModelHandler(),
                                     new FileModelHandler(),
                                     new ObjectHandler()
                             );
