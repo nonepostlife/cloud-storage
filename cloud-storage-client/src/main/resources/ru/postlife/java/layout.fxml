@@ -39,6 +39,8 @@
       fx:controller="ru.postlife.java.NettyChatController">
     <MenuBar VBox.vgrow="NEVER">
         <Menu mnemonicParsing="false" text="File">
+            <MenuItem onAction="#openConnectDialog" mnemonicParsing="false" text="Connect"/>
+            <MenuItem mnemonicParsing="false" text="Disconnect"/>
             <MenuItem mnemonicParsing="false" text="Quit"/>
         </Menu>
         <Menu mnemonicParsing="false" text="Edit">

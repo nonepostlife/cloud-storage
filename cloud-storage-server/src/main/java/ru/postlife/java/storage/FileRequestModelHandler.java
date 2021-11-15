@@ -1,4 +1,4 @@
-package ru.postlife.java.lesson3.netty;
+package ru.postlife.java.storage;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -53,7 +53,6 @@ public class FileRequestModelHandler extends SimpleChannelInboundHandler<FileReq
 
                 FileModel model = new FileModel();
                 model.setFileName(fileName);
-                model.setFileLength(fileLength);
                 model.setData(buf);
                 model.setCountBatch(batchCount);
                 model.setCurrentBatch(i++);

@@ -16,12 +16,18 @@ import io.netty.handler.codec.serialization.ObjectDecoderInputStream;
 import io.netty.handler.codec.serialization.ObjectEncoderOutputStream;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.*;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import javafx.util.Callback;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import ru.postlife.java.model.AuthModel;
 import ru.postlife.java.model.FileListModel;
 import ru.postlife.java.model.FileModel;
 import ru.postlife.java.model.FileRequestModel;
@@ -32,26 +38,31 @@ import static java.nio.file.StandardWatchEventKinds.*;
 public class NettyChatController implements Initializable {
 
     private static final int BUFFER_SIZE = 1024;
+
     public ProgressBar progressBar;
-
-    private byte[] buf;
-    private Path clientDir;
-
     public ListView<String> clientView;
     public ListView<String> serverView;
     public TextField input;
 
+    private Socket socket;
     private ObjectEncoderOutputStream os;
     private ObjectDecoderInputStream is;
+
+    private byte[] buf;
+    private Path clientDir;
+    private Path currentDir;
+    private AuthModel authModel;
 
     @SneakyThrows
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         buf = new byte[BUFFER_SIZE];
+        authModel = new AuthModel();
         clientDir = Paths.get("cloud-storage-client", "client");
         if (!Files.exists(clientDir)) {
             Files.createDirectory(clientDir);
         }
+        currentDir = Paths.get(clientDir.toString());
         input.setEditable(false);
 
         clientView.getItems().clear();
@@ -129,22 +140,11 @@ public class NettyChatController implements Initializable {
             }
         });
 
-        progressBar.setProgress(0);
-
-        Socket socket = new Socket("localhost", 8189);
-        os = new ObjectEncoderOutputStream(socket.getOutputStream());
-        is = new ObjectDecoderInputStream(socket.getInputStream());
-        Thread thread = new Thread(this::read);
-        thread.setDaemon(true);
-        thread.start();
-
         WatchService watchService = FileSystems.getDefault().newWatchService();
         runAsync(watchService);
         clientDir.register(watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
 
-        FileListModel files = new FileListModel(new ArrayList<>());
-        os.writeObject(files);
-        os.flush();
+        progressBar.setProgress(0);
     }
 
     private List<String> getFiles(Path path) throws IOException {
@@ -158,6 +158,20 @@ public class NettyChatController implements Initializable {
             Object obj = is.readObject();
             log.debug("receive object {}", obj);
 
+            if (obj.getClass() == AuthModel.class) {
+                authModel = (AuthModel) obj;
+                if (authModel.isAuth()) {
+                    log.debug("user {} is success auth", authModel.getLogin());
+                    showInformStringMessage(authModel.getResponse());
+
+                    FileListModel files = new FileListModel(new ArrayList<>());
+                    os.writeObject(files);
+                    os.flush();
+                } else {
+                    showErrorStringMessage(authModel.getResponse());
+                }
+                continue;
+            }
             if (obj.getClass() == FileListModel.class) {
                 FileListModel fileListModel = (FileListModel) obj;
                 List<String> files = fileListModel.getFiles();
@@ -170,8 +184,8 @@ public class NettyChatController implements Initializable {
             }
             if (obj.getClass() == FileModel.class) {
                 FileModel model = (FileModel) obj;
+                Path file = clientDir.resolve(model.getFileName());
                 String fileName = model.getFileName();
-                Path file = clientDir.resolve(fileName);
 
                 try (FileOutputStream fos = new FileOutputStream(file.toFile())) {
                     log.debug("try download file: {}", fileName);
@@ -232,29 +246,28 @@ public class NettyChatController implements Initializable {
     }
 
     public void sendFile(String fileName) throws IOException {
-        File myFile = new File(clientDir.resolve(fileName).toString());
-        log.debug("try send file - {}", myFile.getAbsolutePath());
-        if (!myFile.exists()) {
+        Path myFile = currentDir.resolve(fileName);
+        log.debug("try send file - {}", myFile.toFile());
+        if (!myFile.toFile().exists()) {
             log.error("{} not exists", fileName);
             return;
         }
-        if (myFile.isDirectory()) {
+        if (myFile.toFile().isDirectory()) {
             log.error("{} is not file", fileName);
             return;
         }
 
-        long fileLength = myFile.length();
+        long fileLength = myFile.toFile().length();
         long batchCount = (fileLength + BUFFER_SIZE - 1) / BUFFER_SIZE;
         long i = 1;
         log.debug("upload file: {} ; batch count {} ", fileName, batchCount);
 
-        try (FileInputStream fis = new FileInputStream(myFile)) {
+        try (FileInputStream fis = new FileInputStream(myFile.toFile())) {
             while (fis.available() > 0) {
                 int read = fis.read(buf);
 
                 FileModel model = new FileModel();
                 model.setFileName(fileName);
-                model.setFileLength(fileLength);
                 model.setData(buf);
                 model.setCountBatch(batchCount);
                 model.setCurrentBatch(i++);
@@ -265,7 +278,6 @@ public class NettyChatController implements Initializable {
 
                 double current = (double) i / batchCount;
                 progressBar.setProgress(current);
-                System.out.println(current);
             }
         }
         os.flush();
@@ -309,5 +321,56 @@ public class NettyChatController implements Initializable {
         });
         thread.setDaemon(true);
         thread.start();
+    }
+
+    public void openConnectDialog(ActionEvent actionEvent) {
+        if (socket == null) {
+            try {
+                socket = new Socket("localhost", 8189);
+                os = new ObjectEncoderOutputStream(socket.getOutputStream());
+                is = new ObjectDecoderInputStream(socket.getInputStream());
+                Thread thread = new Thread(this::read);
+                thread.setDaemon(true);
+                thread.start();
+            } catch (Exception e) {
+                log.error("e", e);
+                showErrorStringMessage("Unable to connect to server!");
+            }
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("auth.fxml"));
+            Parent parent = loader.load();
+            AuthController authController = loader.<AuthController>getController();
+            authController.setAuthModel(authModel);
+
+            Scene scene = new Scene(parent, 300, 200);
+            Stage stage = new Stage();
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setScene(scene);
+            stage.showAndWait();
+
+            log.debug("send request on auth for user " + authModel.getLogin());
+            os.writeObject(authModel);
+            os.flush();
+        } catch (Exception e) {
+            log.error("e", e);
+        }
+    }
+
+    private void showErrorStringMessage(String message) {
+        Platform.runLater(() -> {
+            new Alert(Alert.AlertType.ERROR, message, ButtonType.OK).showAndWait();
+        });
+    }
+
+    private void showInformStringMessage(String message) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Info");
+            alert.setHeaderText(message);
+            alert.setContentText(String.format("Welcome, %s %s!\nWe wish you pleasant work in our application!", authModel.getFirstname(), authModel.getLastname()));
+            alert.showAndWait();
+        });
     }
 }

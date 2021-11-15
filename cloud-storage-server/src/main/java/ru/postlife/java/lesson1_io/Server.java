@@ -1,4 +1,4 @@
-package ru.postlife.java;
+package ru.postlife.java.lesson1_io;
 
 import java.net.ServerSocket;
 import java.net.Socket;

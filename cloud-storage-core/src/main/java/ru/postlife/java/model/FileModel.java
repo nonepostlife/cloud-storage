@@ -7,7 +7,6 @@ import java.io.Serializable;
 @Data
 public class FileModel implements Serializable {
     private String fileName;
-    private long fileLength;
     private byte[] data;
 
     private long countBatch;
