@@ -1,4 +1,4 @@
-package ru.postlife.java.lesson3.netty;
+package ru.postlife.java.storage;
 
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;

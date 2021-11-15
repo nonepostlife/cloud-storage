@@ -1,4 +1,4 @@
-package ru.postlife.java.lesson3.netty;
+package ru.postlife.java.storage;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -10,8 +10,6 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -19,10 +17,15 @@ public class NettyServer {
 
     public static void main(String[] args) {
 
+        AuthService authService;
+
         EventLoopGroup auth = new NioEventLoopGroup(1);
         EventLoopGroup worker = new NioEventLoopGroup();
 
         try {
+            authService = new DatabaseAuthService();
+            authService.start();
+
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.channel(NioServerSocketChannel.class)
                     .group(auth, worker)
@@ -33,10 +36,11 @@ public class NettyServer {
                             channel.pipeline().addLast(
                                     new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
                                     new ObjectEncoder(),
-                                    new ObjectHandler(),
-                                    new StringDecoder(),
-                                    new StringEncoder(),
-                                    new StringHandler()
+                                    new AuthHandler(authService),
+                                    new FileListModelHandler(),
+                                    new FileRequestModelHandler(),
+                                    new FileModelHandler(),
+                                    new ObjectHandler()
                             );
                         }
                     });
@@ -49,6 +53,5 @@ public class NettyServer {
             auth.shutdownGracefully();
             worker.shutdownGracefully();
         }
-
     }
 }
