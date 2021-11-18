@@ -43,6 +43,10 @@ public class NettyChatController implements Initializable {
     public ListView<String> clientView;
     public ListView<String> serverView;
     public TextField input;
+    public TextField clientPath;
+    public TextField serverPath;
+    public Button clientBack;
+    public Button serverBack;
 
     private Socket socket;
     private ObjectEncoderOutputStream os;
@@ -50,7 +54,8 @@ public class NettyChatController implements Initializable {
 
     private byte[] buf;
     private Path clientDir;
-    private Path currentDir;
+    private Path currentClientDir;
+    private Path currentServerDir;
     private AuthModel authModel;
 
     @SneakyThrows
@@ -62,16 +67,47 @@ public class NettyChatController implements Initializable {
         if (!Files.exists(clientDir)) {
             Files.createDirectory(clientDir);
         }
-        currentDir = Paths.get(clientDir.toString());
-        input.setEditable(false);
-
+        currentClientDir = Paths.get(clientDir.toString());
+        clientPath.setEditable(false);
+        serverPath.setEditable(false);
         clientView.getItems().clear();
-        clientView.getItems().addAll(getFiles(clientDir));
+        clientView.getItems().addAll(getFiles(currentClientDir));
+
         clientView.setOnMouseClicked(event -> {
-            if (event.getClickCount() == 2) {
+            if (event.getClickCount() == 2 && event.getButton() == MouseButton.PRIMARY) {
                 String item = clientView.getSelectionModel().getSelectedItem();
-                input.setText(item);
-                input.requestFocus();
+                if (!item.isEmpty()) {
+                    Path newPath = currentClientDir.resolve(item);
+                    if (newPath.toFile().exists()) {
+                        if (newPath.toFile().isDirectory()) {
+                            currentClientDir = newPath;
+                            try {
+                                clientView.getItems().clear();
+                                clientView.getItems().addAll(getFiles(currentClientDir));
+                            } catch (IOException e) {
+                                log.error("e", e);
+                            }
+                            clientPath.setText(currentClientDir.subpath(2, currentClientDir.getNameCount()).toString());
+                        }
+                    }
+                }
+            }
+        });
+
+        clientBack.setOnMouseClicked(event -> {
+            if (!currentClientDir.equals(clientDir)) {
+                currentClientDir = currentClientDir.getParent();
+                try {
+                    clientView.getItems().clear();
+                    clientView.getItems().addAll(getFiles(currentClientDir));
+                } catch (IOException e) {
+                    log.error("e", e);
+                }
+                if (currentClientDir.getNameCount() == 2) {
+                    clientPath.setText("");
+                } else {
+                    clientPath.setText(currentClientDir.subpath(2, currentClientDir.getNameCount()).toString());
+                }
             }
         });
 
@@ -90,55 +126,57 @@ public class NettyChatController implements Initializable {
                     System.out.println("listcell setOnDragDetected");
                     Dragboard db = listCell.startDragAndDrop(TransferMode.COPY);
                     ClipboardContent content = new ClipboardContent();
-                    content.putString(listCell.getItem());
-                    db.setContent(content);
-                    System.out.println(db.getString());
-                    event.consume();
+                    if (listCell.getItem() != null) {
+                        content.putString(listCell.getItem());
+                        db.setContent(content);
+                        System.out.println(db.getString());
+                        event.consume();
+                    }
                 });
                 return listCell;
             }
         });
 
-        serverView.setCellFactory(new Callback<ListView<String>, ListCell<String>>() {
-            @Override
-            public ListCell<String> call(ListView<String> param) {
-                ListCell<String> listCell = new ListCell<String>() {
-                    @Override
-                    protected void updateItem(String item, boolean empty) {
-                        super.updateItem(item, empty);
-                        if (item != null) {
-                            setText(item);
-                        }
-                    }
-                };
-                listCell.setOnDragOver((DragEvent event) ->
-                {
-                    Dragboard db = event.getDragboard();
-                    if (db.hasString()) {
-                        event.acceptTransferModes(TransferMode.COPY_OR_MOVE);
-                    }
-                    event.consume();
-                });
-                listCell.setOnDragDropped((DragEvent event) ->
-                {
-                    System.out.println("treeCell.setOnDragDropped");
-                    Dragboard db = event.getDragboard();
-                    boolean success = false;
-                    if (db.hasString()) {
-                        System.out.println("Dropped: " + db.getString());
-                        try {
-                            sendFile(db.getString());
-                        } catch (IOException e) {
-                            log.error("e", e);
-                        }
-                        success = true;
-                    }
-                    event.setDropCompleted(success);
-                    event.consume();
-                });
-                return listCell;
-            }
-        });
+//        serverView.setCellFactory(new Callback<ListView<String>, ListCell<String>>() {
+//            @Override
+//            public ListCell<String> call(ListView<String> param) {
+//                ListCell<String> listCell = new ListCell<String>() {
+//                    @Override
+//                    protected void updateItem(String item, boolean empty) {
+//                        super.updateItem(item, empty);
+//                        if (item != null) {
+//                            setText(item);
+//                        }
+//                    }
+//                };
+//                listCell.setOnDragOver((DragEvent event) ->
+//                {
+//                    Dragboard db = event.getDragboard();
+//                    if (db.hasString()) {
+//                        event.acceptTransferModes(TransferMode.COPY_OR_MOVE);
+//                    }
+//                    event.consume();
+//                });
+//                listCell.setOnDragDropped((DragEvent event) ->
+//                {
+//                    System.out.println("treeCell.setOnDragDropped");
+//                    Dragboard db = event.getDragboard();
+//                    boolean success = false;
+//                    if (db.hasString()) {
+//                        System.out.println("Dropped: " + db.getString());
+//                        try {
+//                            sendFile(db.getString());
+//                        } catch (IOException e) {
+//                            log.error("e", e);
+//                        }
+//                        success = true;
+//                    }
+//                    event.setDropCompleted(success);
+//                    event.consume();
+//                });
+//                return listCell;
+//            }
+//        });
 
         WatchService watchService = FileSystems.getDefault().newWatchService();
         runAsync(watchService);
@@ -155,83 +193,92 @@ public class NettyChatController implements Initializable {
     @SneakyThrows
     private void read() {
         while (true) {
-            Object obj = is.readObject();
-            log.debug("receive object {}", obj);
+            if (socket != null && !socket.isClosed()) {
+                Object obj = is.readObject();
+                log.debug("receive object {}", obj);
 
-            if (obj.getClass() == AuthModel.class) {
-                authModel = (AuthModel) obj;
-                if (authModel.isAuth()) {
-                    log.debug("user {} is success auth", authModel.getLogin());
-                    showInformStringMessage(authModel.getResponse());
+                if (obj.getClass() == AuthModel.class) {
+                    authModel = (AuthModel) obj;
+                    if (authModel.isAuth()) {
+                        log.debug("user {} is success auth", authModel.getLogin());
+                        showInformStringMessage(authModel.getResponse());
 
-                    FileListModel files = new FileListModel(new ArrayList<>());
-                    os.writeObject(files);
-                    os.flush();
-                } else {
-                    showErrorStringMessage(authModel.getResponse());
-                }
-                continue;
-            }
-            if (obj.getClass() == FileListModel.class) {
-                FileListModel fileListModel = (FileListModel) obj;
-                List<String> files = fileListModel.getFiles();
-                Platform.runLater(() -> {
-                    serverView.getItems().clear();
-                    serverView.getItems().addAll(files);
-                });
-                log.debug("files on server: {}", files);
-                continue;
-            }
-            if (obj.getClass() == FileModel.class) {
-                FileModel model = (FileModel) obj;
-                Path file = clientDir.resolve(model.getFileName());
-                String fileName = model.getFileName();
-
-                try (FileOutputStream fos = new FileOutputStream(file.toFile())) {
-                    log.debug("try download file: {}", fileName);
-                    log.debug("open stream for receive file  \"{}\"", fileName);
-
-                    while (true) {
-                        fos.write(model.getData(), 0, model.getBatchLength());
-                        log.debug("received: {} batch {}/{}", fileName, model.getCurrentBatch(), model.getCountBatch());
-                        model = (FileModel) is.readObject();
-                        if (model.getCurrentBatch() == model.getCountBatch()) {
-                            fos.write(model.getData(), 0, model.getBatchLength());
-                            log.debug("received: {} batch {}/{}", fileName, model.getCurrentBatch(), model.getCountBatch());
-                            break;
-                        }
+                        List<String> list = new ArrayList<>();
+                        FileListModel files = new FileListModel();
+                        files.setFiles(list);
+                        files.setOwner(authModel.getLogin());
+                        os.writeObject(files);
+                        os.flush();
+                    } else {
+                        showErrorStringMessage(authModel.getResponse());
                     }
-
-                    log.debug("close stream for receive file \"{}\"", fileName);
-                    log.debug("download file {} is success", fileName);
-                } catch (Exception e) {
-                    log.error("e", e);
+                    continue;
                 }
-                Platform.runLater(() -> {
-                    try {
-                        clientView.getItems().clear();
-                        clientView.getItems().addAll(getFiles(clientDir));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
-                continue;
-            }
-            if (obj.getClass() == String.class) {
-                String msg = (String) obj;
-                log.debug("Received: {}", msg);
-                Platform.runLater(() -> {
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                    alert.setTitle("Info");
-                    alert.setHeaderText("Server response");
-                    alert.setContentText(msg);
-                    alert.showAndWait().ifPresent(rs -> {
-                        if (rs == ButtonType.OK) {
-                            System.out.println("Pressed OK.");
+                if (obj.getClass() == FileListModel.class) {
+                    FileListModel fileListModel = (FileListModel) obj;
+                    List<String> files = fileListModel.getFiles();
+                    log.debug("files on server: {}", files);
+                    Platform.runLater(() -> {
+                        serverView.getItems().clear();
+                        serverView.getItems().addAll(files);
+                        Path path = Paths.get(fileListModel.getPath());
+                        if (path.getNameCount() == 3) {
+                            serverPath.setText("");
+                        } else {
+                            serverPath.setText(path.subpath(3, path.getNameCount()).toString());
                         }
                     });
-                });
-                continue;
+                    continue;
+                }
+                if (obj.getClass() == FileModel.class) {
+                    FileModel model = (FileModel) obj;
+                    Path file = clientDir.resolve(model.getFileName());
+                    String fileName = model.getFileName();
+
+                    try (FileOutputStream fos = new FileOutputStream(file.toFile())) {
+                        log.debug("try download file: {}", fileName);
+                        log.debug("open stream for receive file  \"{}\"", fileName);
+
+                        while (true) {
+                            fos.write(model.getData(), 0, model.getBatchLength());
+                            log.debug("received: {} batch {}/{}", fileName, model.getCurrentBatch(), model.getCountBatch());
+                            if (model.getCurrentBatch() == model.getCountBatch()) {
+                                //fos.write(model.getData(), 0, model.getBatchLength());
+                                log.debug("received: {} batch {}/{}", fileName, model.getCurrentBatch(), model.getCountBatch());
+                                break;
+                            }
+                            model = (FileModel) is.readObject();
+                        }
+                        log.debug("close stream for receive file \"{}\"", fileName);
+                        log.debug("download file {} is success", fileName);
+                    } catch (Exception e) {
+                        log.error("e", e);
+                    }
+                    Platform.runLater(() -> {
+                        try {
+                            clientView.getItems().clear();
+                            clientView.getItems().addAll(getFiles(file.getParent()));
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                    continue;
+                }
+                if (obj.getClass() == String.class) {
+                    String msg = (String) obj;
+                    log.debug("Received: {}", msg);
+                    Platform.runLater(() -> {
+                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                        alert.setTitle("Info");
+                        alert.setHeaderText("Server response");
+                        alert.setContentText(msg);
+                        alert.showAndWait().ifPresent(rs -> {
+                            if (rs == ButtonType.OK) {
+                                System.out.println("Pressed OK.");
+                            }
+                        });
+                    });
+                }
             }
         }
     }
@@ -246,7 +293,7 @@ public class NettyChatController implements Initializable {
     }
 
     public void sendFile(String fileName) throws IOException {
-        Path myFile = currentDir.resolve(fileName);
+        Path myFile = currentClientDir.resolve(fileName);
         log.debug("try send file - {}", myFile.toFile());
         if (!myFile.toFile().exists()) {
             log.error("{} not exists", fileName);
@@ -267,7 +314,8 @@ public class NettyChatController implements Initializable {
                 int read = fis.read(buf);
 
                 FileModel model = new FileModel();
-                model.setFileName(fileName);
+                model.setFileName(myFile.subpath(2, myFile.getNameCount()).toString());
+                model.setOwner(authModel.getLogin());
                 model.setData(buf);
                 model.setCountBatch(batchCount);
                 model.setCurrentBatch(i++);
@@ -288,7 +336,10 @@ public class NettyChatController implements Initializable {
     }
 
     public void upload(String fileName) throws IOException {
-        FileRequestModel requestModel = new FileRequestModel(fileName);
+        FileRequestModel requestModel = new FileRequestModel();
+        requestModel.setFileName(fileName);
+        requestModel.setFilePath(serverPath.getText());
+        requestModel.setOwner(authModel.getLogin());
         os.writeObject(requestModel);
         os.flush();
     }
@@ -337,24 +388,25 @@ public class NettyChatController implements Initializable {
                 showErrorStringMessage("Unable to connect to server!");
             }
         }
+        if (socket != null) {
+            try {
+                FXMLLoader loader = new FXMLLoader(getClass().getResource("auth.fxml"));
+                Parent parent = loader.load();
+                AuthController authController = loader.<AuthController>getController();
+                authController.setAuthModel(authModel);
 
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("auth.fxml"));
-            Parent parent = loader.load();
-            AuthController authController = loader.<AuthController>getController();
-            authController.setAuthModel(authModel);
+                Scene scene = new Scene(parent, 300, 200);
+                Stage stage = new Stage();
+                stage.initModality(Modality.APPLICATION_MODAL);
+                stage.setScene(scene);
+                stage.showAndWait();
 
-            Scene scene = new Scene(parent, 300, 200);
-            Stage stage = new Stage();
-            stage.initModality(Modality.APPLICATION_MODAL);
-            stage.setScene(scene);
-            stage.showAndWait();
-
-            log.debug("send request on auth for user " + authModel.getLogin());
-            os.writeObject(authModel);
-            os.flush();
-        } catch (Exception e) {
-            log.error("e", e);
+                log.debug("send request on auth for user " + authModel.getLogin());
+                os.writeObject(authModel);
+                os.flush();
+            } catch (Exception e) {
+                log.error("e", e);
+            }
         }
     }
 
@@ -372,5 +424,33 @@ public class NettyChatController implements Initializable {
             alert.setContentText(String.format("Welcome, %s %s!\nWe wish you pleasant work in our application!", authModel.getFirstname(), authModel.getLastname()));
             alert.showAndWait();
         });
+    }
+
+    private void closeConnectionAndResources() {
+        try {
+            if (is != null) {
+                is.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try {
+            if (os != null) {
+                os.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try {
+            if (socket != null) {
+                socket.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void disconnect(ActionEvent actionEvent) {
+        closeConnectionAndResources();
     }
 }

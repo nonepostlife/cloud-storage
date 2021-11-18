@@ -7,9 +7,11 @@ import java.util.List;
 
 @Data
 public class FileListModel implements Serializable {
+    private String owner;
+    private String path;
     private List<String> files;
 
-    public FileListModel(List<String> files) {
-        this.files = files;
+    public FileListModel() {
+        this.path = "";
     }
 }

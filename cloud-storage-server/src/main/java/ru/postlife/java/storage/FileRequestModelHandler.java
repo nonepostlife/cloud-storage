@@ -40,29 +40,32 @@ public class FileRequestModelHandler extends SimpleChannelInboundHandler<FileReq
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FileRequestModel o) throws Exception {
         String fileName = o.getFileName();
-        File myFile = serverDir.resolve(o.getFileName()).toFile();
+        File myFile = serverDir.resolve(o.getOwner()).resolve(o.getFilePath()).resolve(o.getFileName()).toFile();
 
         long fileLength = myFile.length();
         long batchCount = (fileLength + BUFFER_SIZE - 1) / BUFFER_SIZE;
         long i = 1;
-        log.debug("upload file: {} ; batch count {} ", fileName, batchCount);
+        log.debug("try to upload file:{} ; batch count {} ", myFile, batchCount);
+
+        Path path = Paths.get(o.getFilePath(), o.getFileName());
 
         try (FileInputStream fis = new FileInputStream(myFile)) {
             while (fis.available() > 0) {
                 int read = fis.read(buf);
 
                 FileModel model = new FileModel();
-                model.setFileName(fileName);
+                model.setOwner(o.getOwner());
+                model.setFileName(path.toString());
                 model.setData(buf);
                 model.setCountBatch(batchCount);
                 model.setCurrentBatch(i++);
                 model.setBatchLength(read);
 
                 ctx.write(model);
-                log.debug("send {} batch {}/{}", fileName, model.getCurrentBatch(), model.getCountBatch());
+                log.debug("send file:{} batch:{}/{}", myFile, model.getCurrentBatch(), model.getCountBatch());
             }
         }
         ctx.flush();
-        log.debug("upload file {} is success", fileName);
+        log.debug("upload file {} is success", myFile);
     }
 }

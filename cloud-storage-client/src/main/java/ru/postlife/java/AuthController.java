@@ -1,8 +1,11 @@
 package ru.postlife.java;
 
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
@@ -25,6 +28,14 @@ public class AuthController {
     }
 
     public void btnTryAuth(ActionEvent actionEvent) {
+        if(loginField.getText().isEmpty()) {
+            showErrorStringMessage("Login is required");
+            return;
+        }
+        if(passwordField.getText().isEmpty()) {
+            showErrorStringMessage("Password is required");
+            return;
+        }
         authModel.setLogin(loginField.getText().trim());
         authModel.setPassword(passwordField.getText().trim());
         closeStage(actionEvent);
@@ -34,5 +45,11 @@ public class AuthController {
         Node source = (Node) event.getSource();
         Stage stage = (Stage) source.getScene().getWindow();
         stage.close();
+    }
+
+    private void showErrorStringMessage(String message) {
+        Platform.runLater(() -> {
+            new Alert(Alert.AlertType.ERROR, message, ButtonType.OK).showAndWait();
+        });
     }
 }

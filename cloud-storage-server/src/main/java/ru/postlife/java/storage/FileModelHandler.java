@@ -41,12 +41,12 @@ public class FileModelHandler extends SimpleChannelInboundHandler<FileModel> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FileModel o) throws Exception {
         String fileName = o.getFileName();
-        Path file = serverDir.resolve(fileName);
-//        if (!Files.exists(file.getParent())) {
-//            Files.createDirectory(file.getParent());
-//        }
+        Path file = serverDir.resolve(o.getOwner()).resolve(fileName);
+        if (!Files.exists(file.getParent())) {
+            Files.createDirectories(file.getParent());
+        }
 
-        if(o.getCurrentBatch() == 1) {
+        if (o.getCurrentBatch() == 1) {
             fos = new FileOutputStream(file.toFile());
             log.debug("download file: {}", fileName);
             log.debug("open stream for receive file  \"{}\"", fileName);
@@ -59,10 +59,15 @@ public class FileModelHandler extends SimpleChannelInboundHandler<FileModel> {
             fos.close();
             log.debug("close stream for receive file \"{}\"", fileName);
 
-            List<String> files = Files.list(serverDir).map(p -> p.getFileName().toString())
+            // отправка списка файлов
+            List<String> files = Files.list(file.getParent()).map(p -> p.getFileName().toString())
                     .collect(Collectors.toList());
-            ctx.writeAndFlush(new FileListModel(files));
-            log.debug("send list files: {}", files);
+            FileListModel model = new FileListModel();
+            model.setFiles(files);
+            model.setOwner(o.getOwner());
+            model.setPath(file.getParent().toString());
+            log.debug("send list files to user:{}, from path:{}, files:{}", o.getOwner(), model.getPath(), model.getFiles());
+            ctx.writeAndFlush(model);
         }
     }
 }

@@ -6,6 +6,8 @@ import java.io.Serializable;
 
 @Data
 public class FileModel implements Serializable {
+    private String owner;
+
     private String fileName;
     private byte[] data;
 

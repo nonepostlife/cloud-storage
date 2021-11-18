@@ -40,7 +40,7 @@
     <MenuBar VBox.vgrow="NEVER">
         <Menu mnemonicParsing="false" text="File">
             <MenuItem onAction="#openConnectDialog" mnemonicParsing="false" text="Connect"/>
-            <MenuItem mnemonicParsing="false" text="Disconnect"/>
+            <MenuItem onAction="#disconnect" mnemonicParsing="false" text="Disconnect"/>
             <MenuItem mnemonicParsing="false" text="Quit"/>
         </Menu>
         <Menu mnemonicParsing="false" text="Edit">
@@ -61,10 +61,10 @@
         <Button onAction="#upload" layoutX="293.0" layoutY="175.0" mnemonicParsing="false" prefHeight="55.0" prefWidth="55.0" text="&lt;"/>
         <TextField fx:id="input" layoutX="14.0" layoutY="315.0" onAction="#sendFile" prefHeight="27.0"
                    prefWidth="612.0"/>
-        <TextField layoutX="14.0" layoutY="3.0" prefHeight="27.0" prefWidth="271.0"/>
-        <TextField layoutX="355.0" layoutY="3.0" prefHeight="27.0" prefWidth="271.0"/>
-        <Button layoutX="253.0" layoutY="3.0" mnemonicParsing="false" prefHeight="27.0" prefWidth="32.0" text="..."/>
-        <Button layoutX="594.0" layoutY="3.0" mnemonicParsing="false" prefHeight="27.0" prefWidth="32.0" text="..."/>
+        <TextField fx:id="clientPath" layoutX="14.0" layoutY="3.0" prefHeight="27.0" prefWidth="271.0"/>
+        <TextField fx:id="serverPath" layoutX="355.0" layoutY="3.0" prefHeight="27.0" prefWidth="271.0"/>
+        <Button fx:id="clientBack" layoutX="253.0" layoutY="3.0" mnemonicParsing="false" prefHeight="27.0" prefWidth="32.0" text="..."/>
+        <Button fx:id="serverBack" layoutX="594.0" layoutY="3.0" mnemonicParsing="false" prefHeight="27.0" prefWidth="32.0" text="..."/>
         <ProgressBar fx:id="progressBar" layoutX="14.0" layoutY="350.0" prefHeight="18.0" prefWidth="612.0" progress="0.0"/>
     </AnchorPane>
 </VBox>
