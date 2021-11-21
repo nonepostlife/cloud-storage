@@ -6,12 +6,12 @@ import java.io.Serializable;
 import java.util.List;
 
 @Data
-public class FileListModel implements Serializable {
+public class FileList implements Serializable {
     private String owner;
     private String path;
     private List<String> files;
 
-    public FileListModel() {
+    public FileList() {
         this.path = "";
     }
 }

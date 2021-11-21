@@ -3,7 +3,7 @@ package ru.postlife.java.storage;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
-import ru.postlife.java.model.FileListModel;
+import ru.postlife.java.model.FileList;
 import ru.postlife.java.model.FileModel;
 
 import java.io.FileOutputStream;
@@ -40,34 +40,36 @@ public class FileModelHandler extends SimpleChannelInboundHandler<FileModel> {
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FileModel o) throws Exception {
-        String fileName = o.getFileName();
-        Path file = serverDir.resolve(o.getOwner()).resolve(fileName);
+        String filePath = o.getFilePath();
+        Path file = serverDir.resolve(o.getOwner()).resolve(filePath);
         if (!Files.exists(file.getParent())) {
             Files.createDirectories(file.getParent());
         }
-
         if (o.getCurrentBatch() == 1) {
             fos = new FileOutputStream(file.toFile());
-            log.debug("download file: {}", fileName);
-            log.debug("open stream for receive file  \"{}\"", fileName);
+            log.debug("download file:{}", filePath);
+            log.debug("open stream for receive file:{}", filePath);
         }
 
         fos.write(o.getData(), 0, o.getBatchLength());
-        log.debug("received: {} batch {}/{}", fileName, o.getCurrentBatch(), o.getCountBatch());
+        log.debug("received file:{}; batch:{}/{}", filePath, o.getCurrentBatch(), o.getCountBatch());
 
         if (o.getCurrentBatch() == o.getCountBatch()) {
             fos.close();
-            log.debug("close stream for receive file \"{}\"", fileName);
+            log.debug("close stream for receive file:{}", filePath);
 
             // отправка списка файлов
-            List<String> files = Files.list(file.getParent()).map(p -> p.getFileName().toString())
-                    .collect(Collectors.toList());
-            FileListModel model = new FileListModel();
-            model.setFiles(files);
+            List<String> files = Files.list(file.getParent()).map(p -> p.getFileName().toString()).collect(Collectors.toList());
+            FileList model = new FileList();
             model.setOwner(o.getOwner());
-            model.setPath(file.getParent().toString());
-            log.debug("send list files to user:{}, from path:{}, files:{}", o.getOwner(), model.getPath(), model.getFiles());
+            if (file.getParent().getNameCount() == 3) {
+                model.setPath("");
+            } else {
+                model.setPath(file.subpath(3, file.getNameCount() - 1).toString());
+            }
+            model.setFiles(files);
             ctx.writeAndFlush(model);
+            log.debug("send list files to user:{}; from path:{}; files:{}", o.getOwner(), filePath, model.getFiles());
         }
     }
 }
