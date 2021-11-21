@@ -1,4 +1,4 @@
-package ru.postlife.java;
+package ru.postlife.java.storage;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;

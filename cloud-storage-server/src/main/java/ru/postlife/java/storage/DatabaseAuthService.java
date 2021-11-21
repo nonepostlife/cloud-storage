@@ -50,6 +50,11 @@ public class DatabaseAuthService implements AuthService {
 
     @Override
     public AuthModel checkUserByLoginPass(AuthModel authModel) {
+        if (connection == null) {
+            authModel.setAuth(false);
+            authModel.setResponse("Database is down");
+            return authModel;
+        }
         try (PreparedStatement ps = connection.prepareStatement("select user_password, user_firstname, user_lastname from user where user_login = ?")) {
             ps.setString(1, authModel.getLogin());
             ps.execute();
