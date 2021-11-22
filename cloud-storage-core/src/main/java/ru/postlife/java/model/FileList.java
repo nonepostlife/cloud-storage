@@ -10,6 +10,7 @@ public class FileList implements Serializable {
     private String owner;
     private String path;
     private List<String> files;
+    private List<FileInfo> fileInfoList;
 
     public FileList() {
         this.path = "";

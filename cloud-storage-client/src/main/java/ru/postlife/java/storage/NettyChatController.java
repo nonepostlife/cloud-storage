@@ -1,5 +1,6 @@
 package ru.postlife.java.storage;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -20,21 +21,30 @@ import javafx.fxml.Initializable;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Callback;
+
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+
+
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import ru.postlife.java.model.AuthModel;
-import ru.postlife.java.model.FileList;
-import ru.postlife.java.model.FileModel;
-import ru.postlife.java.model.FileRequest;
+import ru.postlife.java.model.*;
 
 import static java.nio.file.StandardWatchEventKinds.*;
 
 @Slf4j
 public class NettyChatController implements Initializable {
+
+    private final Image IMAGE_FOLDER = new Image(getClass().getResource("icons/folder.png").toString(), 16, 16, false, false);
+    private final Image IMAGE_DOC = new Image(getClass().getResource("icons/doc.png").toString(), 16, 16, false, false);
 
     private static final int BUFFER_SIZE = 1024;
 
@@ -54,7 +64,8 @@ public class NettyChatController implements Initializable {
     private byte[] buf;
     private Path clientDir;
     private Path currentClientDir;
-    private Path currentServerDir;
+
+    private List<FileInfo> currentServerFiles;
     private AuthModel authModel;
 
     @SneakyThrows
@@ -69,9 +80,11 @@ public class NettyChatController implements Initializable {
         currentClientDir = Paths.get(clientDir.toString());
         clientPath.setEditable(false);
         serverPath.setEditable(false);
-        clientView.getItems().clear();
-        clientView.getItems().addAll(getFiles(currentClientDir));
 
+        //clientView.getItems().clear();
+        //clientView.getItems().addAll(getFiles(currentClientDir));
+
+        // переход в папку
         clientView.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2 && event.getButton() == MouseButton.PRIMARY) {
                 String item = clientView.getSelectionModel().getSelectedItem();
@@ -92,7 +105,6 @@ public class NettyChatController implements Initializable {
                 }
             }
         });
-
         serverView.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2 && event.getButton() == MouseButton.PRIMARY) {
                 String item = serverView.getSelectionModel().getSelectedItem();
@@ -115,7 +127,7 @@ public class NettyChatController implements Initializable {
             }
         });
 
-
+        //
         clientBack.setOnMouseClicked(event -> {
             if (!currentClientDir.equals(clientDir)) {
                 currentClientDir = currentClientDir.getParent();
@@ -137,13 +149,48 @@ public class NettyChatController implements Initializable {
         clientView.setCellFactory(new Callback<ListView<String>, ListCell<String>>() {
             @Override
             public ListCell<String> call(ListView<String> param) {
+
                 ListCell<String> listCell = new ListCell<String>() {
+                    ImageView imageView = new ImageView();
+
                     @Override
-                    protected void updateItem(String item, boolean empty) {
-                        super.updateItem(item, empty);
-                        setText(item);
+                    public void updateItem(String name, boolean empty) {
+                        super.updateItem(name, empty);
+                        if (empty) {
+                            setText(null);
+                            setGraphic(null);
+                        } else {
+                            File file = currentClientDir.resolve(name).toFile();
+                            if (file.isDirectory())
+                                imageView.setImage(IMAGE_FOLDER);
+                            else if (file.isFile())
+                                imageView.setImage(IMAGE_DOC);
+                            setText(name);
+                            setGraphic(imageView);
+                        }
                     }
                 };
+//                ContextMenu contextMenu = new ContextMenu();
+//                MenuItem editItem = new MenuItem();
+//                editItem.textProperty().bind(Bindings.format("Edit \"%s\"", listCell.itemProperty()));
+//                editItem.setOnAction(event -> {
+//                    String item = listCell.getItem();
+//                    // code to edit item...
+//                });
+//                MenuItem deleteItem = new MenuItem();
+//                deleteItem.textProperty().bind(Bindings.format("Delete \"%s\"", listCell.itemProperty()));
+//                deleteItem.setOnAction(event -> clientView.getItems().remove(listCell.getItem()));
+//                contextMenu.getItems().addAll(editItem, deleteItem);
+//
+//                listCell.textProperty().bind(listCell.itemProperty());
+//
+//                listCell.emptyProperty().addListener((obs, wasEmpty, isNowEmpty) -> {
+//                    if (isNowEmpty) {
+//                        listCell.setContextMenu(null);
+//                    } else {
+//                        listCell.setContextMenu(contextMenu);
+//                    }
+//                });
                 listCell.setOnDragDetected((MouseEvent event) ->
                 {
                     System.out.println("listcell setOnDragDetected");
@@ -210,7 +257,22 @@ public class NettyChatController implements Initializable {
 
     private List<String> getFiles(Path path) throws IOException {
         return Files.list(path).map(p -> p.getFileName().toString())
+                .sorted((s1, s2) -> {
+                    File file1 = currentClientDir.resolve(s1).toFile();
+                    File file2 = currentClientDir.resolve(s2).toFile();
+                    if (file1.isDirectory() && !file2.isDirectory()) {
+                        return -1;
+                    } else if (!file1.isDirectory() && file2.isDirectory()) {
+                        return 1; //return String.CASE_INSENSITIVE_ORDER.compare(file1.getName(), file2.getName());
+                    } else {
+                        return 0;
+                    }
+                })
                 .collect(Collectors.toList());
+    }
+
+    private void updateListView() {
+
     }
 
     @SneakyThrows
@@ -240,13 +302,17 @@ public class NettyChatController implements Initializable {
                 }
                 if (obj.getClass() == FileList.class) {
                     FileList fileList = (FileList) obj;
-                    List<String> files = fileList.getFiles();
+                    List<FileInfo> files = fileList.getFileInfoList();
                     String path = fileList.getPath();
                     log.debug("files on server:{} from path:{}", files, path);
+
+                    currentServerFiles = files;
+                    updateListView();
+
                     Platform.runLater(() -> {
-                        serverView.getItems().clear();
-                        serverView.getItems().addAll(files);
-                        serverPath.setText(path);
+                        //serverView.getItems().clear();
+                        //serverView.getItems().addAll(files);
+                        //serverPath.setText(path);
 
 //                        if (path.getNameCount() == 3) {
 //                            serverPath.setText("");
