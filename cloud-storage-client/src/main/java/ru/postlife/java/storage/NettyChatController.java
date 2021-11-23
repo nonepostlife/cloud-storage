@@ -51,14 +51,18 @@ public class NettyChatController implements Initializable {
     private final Image FILE_CLOUD = new Image(getClass().getResource("icons/file_cloud.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
     private final Image FILE_SYNC = new Image(getClass().getResource("icons/file_sync.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
 
+    private final Image BACK = new Image(getClass().getResource("icons/back.png").toString(), 16, 16, false, false);
+    private final Image DOWNLOAD = new Image(getClass().getResource("icons/btn_download.png").toString(), 36, 36, false, false);
+    private final Image UPLOAD = new Image(getClass().getResource("icons/btn_upload.png").toString(), 36, 36, false, false);
+
     public ProgressBar progressBar;
     public ListView<String> clientView;
-    public ListView<String> serverView;
     public TextField input;
     public TextField clientPath;
-    public TextField serverPath;
-    public Button clientBack;
-    public Button serverBack;
+
+    public Button uploadBtn;
+    public Button downloadBtn;
+    public Button backBtn;
 
     private Socket socket;
     private ObjectEncoderOutputStream os;
@@ -68,7 +72,6 @@ public class NettyChatController implements Initializable {
     private Path clientDir;
     private Path currentClientDir;
 
-    //private List<FileInfo> currentServerFiles;
     private Map<String, Boolean> currentServerFilesMap;
     private List<String> currentServerFilenames;
     private AuthModel authModel;
@@ -84,10 +87,13 @@ public class NettyChatController implements Initializable {
         }
         currentClientDir = Paths.get(clientDir.toString());
         clientPath.setEditable(false);
-        serverPath.setEditable(false);
+
+        backBtn.setGraphic(new ImageView(BACK));
+        downloadBtn.setGraphic(new ImageView(DOWNLOAD));
+        uploadBtn.setGraphic(new ImageView(UPLOAD));
 
         // переход в папку на уровень выше
-        clientBack.setOnMouseClicked(event -> {
+        backBtn.setOnMouseClicked(event -> {
             if (!currentClientDir.equals(clientDir)) {
                 currentClientDir = currentClientDir.getParent();
                 log.debug("currentClientDir:{}", currentClientDir);
@@ -437,7 +443,7 @@ public class NettyChatController implements Initializable {
     }
 
     public void download(ActionEvent actionEvent) throws IOException {
-        download(serverView.getSelectionModel().getSelectedItem());
+        download(clientView.getSelectionModel().getSelectedItem());
     }
 
     public void download(String fileName) throws IOException {
@@ -447,11 +453,11 @@ public class NettyChatController implements Initializable {
         }
         FileRequest requestModel = new FileRequest();
         requestModel.setOwner(authModel.getLogin());
-        requestModel.setFilePath(serverPath.getText());
+        requestModel.setFilePath(clientPath.getText());
         requestModel.setFileName(fileName);
         os.writeObject(requestModel);
         os.flush();
-        log.debug("request file:{}\\\\{}", serverPath.getText(), fileName);
+        log.debug("request file:{}\\\\{}", clientPath.getText(), fileName);
     }
 
     private void runAsync(WatchService watchService) {

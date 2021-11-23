@@ -35,36 +35,31 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox prefHeight="400.0" prefWidth="640.0" xmlns="http://javafx.com/javafx/11.0.2" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="ru.postlife.java.storage.NettyChatController">
+<VBox prefHeight="600.0" prefWidth="400.0" xmlns="http://javafx.com/javafx/11.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ru.postlife.java.storage.NettyChatController">
     <MenuBar VBox.vgrow="NEVER">
         <Menu mnemonicParsing="false" text="File">
-            <MenuItem onAction="#openConnectDialog" mnemonicParsing="false" text="Connect"/>
-            <MenuItem onAction="#disconnect" mnemonicParsing="false" text="Disconnect"/>
-            <MenuItem mnemonicParsing="false" text="Quit"/>
+            <MenuItem mnemonicParsing="false" onAction="#openConnectDialog" text="Connect" />
+            <MenuItem mnemonicParsing="false" onAction="#disconnect" text="Disconnect" />
+            <MenuItem mnemonicParsing="false" text="Quit" />
         </Menu>
         <Menu mnemonicParsing="false" text="Edit">
-            <MenuItem mnemonicParsing="false" text="Cut"/>
-            <MenuItem mnemonicParsing="false" text="Copy"/>
-            <MenuItem mnemonicParsing="false" text="Paste"/>
-            <MenuItem mnemonicParsing="false" text="Delete"/>
-            <MenuItem mnemonicParsing="false" text="Rename"/>
+            <MenuItem mnemonicParsing="false" text="Cut" />
+            <MenuItem mnemonicParsing="false" text="Copy" />
+            <MenuItem mnemonicParsing="false" text="Paste" />
+            <MenuItem mnemonicParsing="false" text="Delete" />
+            <MenuItem mnemonicParsing="false" text="Rename" />
         </Menu>
         <Menu mnemonicParsing="false" text="Help">
-            <MenuItem mnemonicParsing="false" text="About App"/>
+            <MenuItem mnemonicParsing="false" text="About App" />
         </Menu>
     </MenuBar>
-    <AnchorPane prefHeight="191.0" prefWidth="368.0" VBox.vgrow="ALWAYS">
-        <ListView fx:id="clientView" layoutX="14.0" layoutY="30.0" prefHeight="280.0" prefWidth="271.0"/>
-        <ListView fx:id="serverView" layoutX="355.0" layoutY="30.0" prefHeight="280.0" prefWidth="271.0"/>
-        <Button onAction="#sendFile" layoutX="293.0" layoutY="105.0" mnemonicParsing="false" prefHeight="55.0" prefWidth="55.0" text="&gt;"/>
-        <Button onAction="#download" layoutX="293.0" layoutY="175.0" mnemonicParsing="false" prefHeight="55.0" prefWidth="55.0" text="&lt;"/>
-        <TextField fx:id="input" layoutX="14.0" layoutY="315.0" onAction="#sendFile" prefHeight="27.0"
-                   prefWidth="612.0"/>
-        <TextField fx:id="clientPath" layoutX="14.0" layoutY="3.0" prefHeight="27.0" prefWidth="271.0"/>
-        <TextField fx:id="serverPath" layoutX="355.0" layoutY="3.0" prefHeight="27.0" prefWidth="271.0"/>
-        <Button fx:id="clientBack" layoutX="253.0" layoutY="3.0" mnemonicParsing="false" prefHeight="27.0" prefWidth="32.0" text="..."/>
-        <Button fx:id="serverBack" layoutX="594.0" layoutY="3.0" mnemonicParsing="false" prefHeight="27.0" prefWidth="32.0" text="..."/>
-        <ProgressBar fx:id="progressBar" layoutX="14.0" layoutY="350.0" prefHeight="18.0" prefWidth="612.0" progress="0.0"/>
+    <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" prefHeight="375.0" prefWidth="556.0" VBox.vgrow="ALWAYS">
+        <ListView fx:id="clientView" layoutX="70.0" layoutY="40.0" prefHeight="460.0" prefWidth="300.0" />
+        <Button fx:id="uploadBtn" layoutX="10.0" layoutY="40.0" mnemonicParsing="false" onAction="#sendFile" prefHeight="55.0" prefWidth="55.0" />
+        <Button fx:id="downloadBtn" layoutX="10.0" layoutY="100.0" mnemonicParsing="false" onAction="#download" prefHeight="55.0" prefWidth="55.0" />
+        <TextField fx:id="input" layoutX="70.0" layoutY="510.0" onAction="#sendFile" prefHeight="27.0" prefWidth="300.0" />
+        <TextField fx:id="clientPath" layoutX="70.0" layoutY="7.0" prefHeight="27.0" prefWidth="269.0" />
+        <Button fx:id="backBtn" layoutX="339.0" layoutY="7.0" mnemonicParsing="false" prefHeight="27.0" prefWidth="32.0" />
+        <ProgressBar fx:id="progressBar" layoutX="70.0" layoutY="545.0" prefHeight="18.0" prefWidth="300.0" progress="0.0" />
     </AnchorPane>
 </VBox>
