@@ -4,14 +4,14 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
 import ru.postlife.java.model.FileList;
-import ru.postlife.java.model.FileInfo;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -35,7 +35,7 @@ public class FileListModelHandler extends SimpleChannelInboundHandler<FileList> 
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FileList o) throws Exception {
-        if (o.getFiles().isEmpty()) {
+        if (o.getFilenames().isEmpty()) {
             Path path = serverDir.resolve(o.getOwner());
             if (!Files.exists(serverDir.resolve(o.getOwner()))) {
                 Files.createDirectories(path);
@@ -48,18 +48,15 @@ public class FileListModelHandler extends SimpleChannelInboundHandler<FileList> 
 
                 List<String> filenames = Files.list(path).map(p -> p.getFileName().toString())
                         .collect(Collectors.toList());
-                o.setFiles(filenames);
+                o.setFilenames(filenames);
 
-                List<FileInfo> fileInfoList = new ArrayList<>();
+                // 2 способ
+                Map<String, Boolean> filesMap = new HashMap<>();
                 for (String filename : filenames) {
                     File file = path.resolve(filename).toFile();
-                    FileInfo fileInfo = new FileInfo();
-                    fileInfo.setFileName(filename);
-                    fileInfo.setDirectory(file.isDirectory());
-                    fileInfoList.add(fileInfo);
+                    filesMap.put(filename, file.isDirectory());
                 }
-                o.setFileInfoList(fileInfoList);
-
+                o.setFilesInfoMap(filesMap);
 
                 if (path.getNameCount() == 3) {
                     o.setPath("");
@@ -68,10 +65,17 @@ public class FileListModelHandler extends SimpleChannelInboundHandler<FileList> 
                 }
 
                 ctx.writeAndFlush(o);
-                log.debug("send list files to user:{}, from path:{}, files:{}", o.getOwner(), path, fileInfoList);
+                log.debug("send list files to user:{}, from path:{}, files:{}", o.getOwner(), path, filenames);
             } else {
-                ctx.writeAndFlush(String.format("Path %s for user %s not exist", o.getPath(), o.getOwner()));
-                log.debug("Path:{} for user:{} not exist", o.getPath(), o.getOwner());
+                o.setFilesInfoMap(new HashMap<>());
+                if (path.getNameCount() == 3) {
+                    o.setPath("");
+                } else {
+                    o.setPath(path.subpath(3, path.getNameCount()).toString());
+                }
+
+                ctx.writeAndFlush(o);
+                log.debug("send list files to user:{}, from path:{}, files:{}", o.getOwner(), path, o.getFilenames());
             }
         }
     }
