@@ -2,27 +2,26 @@ package ru.postlife.java.storage;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import ru.postlife.java.model.FileModel;
 import ru.postlife.java.model.FileRequest;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 @Slf4j
-public class FileRequestModelHandler extends SimpleChannelInboundHandler<FileRequest> {
+public class FileRequestHandler extends SimpleChannelInboundHandler<FileRequest> {
 
-    private static int BUFFER_SIZE = 1024;
+    private static final int BUFFER_SIZE = 1024;
     private byte[] buf;
-    private static int counter = 0;
 
     private Path serverDir;
-    private OutputStream fos;
 
-    public FileRequestModelHandler() {
+    public FileRequestHandler() {
         buf = new byte[BUFFER_SIZE];
         serverDir = Paths.get("cloud-storage-server", "server");
     }
@@ -37,19 +36,38 @@ public class FileRequestModelHandler extends SimpleChannelInboundHandler<FileReq
         log.debug("Client request file...");
     }
 
+    @SneakyThrows
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, FileRequest o) throws Exception {
+    protected void channelRead0(ChannelHandlerContext ctx, FileRequest o) {
         String owner = o.getOwner();
         String filePath = o.getFilePath();
         String fileName = o.getFileName();
         File myFile = serverDir.resolve(owner).resolve(filePath).resolve(fileName).toFile();
 
+        if (myFile.isDirectory()) {
+            // TODO: 24.11.2021 добавить отправку всех файлов из этой папки
+            Files.walk(myFile.toPath())
+                    .forEach(path -> {
+                        System.out.println(path);
+                        sendFileToClient(ctx, path.toFile(), owner);
+                    });
+        } else {
+            sendFileToClient(ctx, myFile, owner);
+        }
+    }
+
+    @SneakyThrows
+    private void sendFileToClient(ChannelHandlerContext ctx, File myFile, String owner) {
+        if (myFile.isDirectory()) {
+            return;
+        }
         long fileLength = myFile.length();
         long batchCount = (fileLength + BUFFER_SIZE - 1) / BUFFER_SIZE;
         long i = 1;
         log.debug("try to upload file:{}; length:{}; batch count:{} ", myFile, fileLength, batchCount);
 
-        Path path = Paths.get(filePath, fileName);
+
+        Path path = Paths.get(myFile.toPath().getParent().subpath(3, myFile.toPath().getParent().getNameCount()).toString(), myFile.getName());
 
         try (FileInputStream fis = new FileInputStream(myFile)) {
             while (fis.available() > 0) {
@@ -64,10 +82,10 @@ public class FileRequestModelHandler extends SimpleChannelInboundHandler<FileReq
                 model.setBatchLength(read);
 
                 ctx.write(model);
-                log.debug("send file:{}; batch:{}/{}", myFile, model.getCurrentBatch(), model.getCountBatch());
+                log.debug("send file:{}; from path:{} batch:{}/{}", myFile.getName(), path.getParent(), model.getCurrentBatch(), model.getCountBatch());
             }
         }
         ctx.flush();
-        log.debug("upload file {} is success", myFile);
+        log.debug("upload file:{} from path:{} is success", myFile, path.getParent());
     }
 }

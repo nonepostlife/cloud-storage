@@ -37,8 +37,8 @@ public class NettyServer {
                                     new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
                                     new ObjectEncoder(),
                                     new AuthHandler(authService),
-                                    new FileListModelHandler(),
-                                    new FileRequestModelHandler(),
+                                    new FileListHandler(),
+                                    new FileRequestHandler(),
                                     new FileModelHandler(),
                                     new ObjectHandler()
                             );

@@ -15,11 +15,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class FileListModelHandler extends SimpleChannelInboundHandler<FileList> {
+public class FileListHandler extends SimpleChannelInboundHandler<FileList> {
 
     private final Path serverDir;
 
-    public FileListModelHandler() {
+    public FileListHandler() {
         serverDir = Paths.get("cloud-storage-server", "server");
     }
 
