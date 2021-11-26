@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import io.netty.handler.codec.serialization.ObjectDecoderInputStream;
 import io.netty.handler.codec.serialization.ObjectEncoderOutputStream;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -52,8 +53,11 @@ public class NettyController implements Initializable {
     private final Image FILE_SYNC = new Image(getClass().getResource("icons/file_sync.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
 
     private final Image BACK = new Image(getClass().getResource("icons/back.png").toString(), 16, 16, false, false);
-    private final Image DOWNLOAD = new Image(getClass().getResource("icons/btn_download.png").toString(), 36, 36, false, false);
-    private final Image UPLOAD = new Image(getClass().getResource("icons/btn_upload.png").toString(), 36, 36, false, false);
+
+    private final Image DOWNLOAD = new Image(getClass().getResource("icons/btn_download.png").toString());
+    private final Image UPLOAD = new Image(getClass().getResource("icons/btn_upload.png").toString());
+    private final Image DELETE_CLIENT = new Image(getClass().getResource("icons/delete_client.png").toString());
+    private final Image DELETE_CLOUD = new Image(getClass().getResource("icons/delete_cloud.png").toString());
 
     public ProgressBar progressBar;
     public ListView<String> clientView;
@@ -63,6 +67,8 @@ public class NettyController implements Initializable {
     public Button uploadBtn;
     public Button downloadBtn;
     public Button backBtn;
+    public Button deleteOnClientBtn;
+    public Button deleteOnServerBtn;
 
     private Socket socket;
     private ObjectEncoderOutputStream os;
@@ -93,9 +99,8 @@ public class NettyController implements Initializable {
         backBtn.setGraphic(new ImageView(BACK));
         downloadBtn.setGraphic(new ImageView(DOWNLOAD));
         uploadBtn.setGraphic(new ImageView(UPLOAD));
-
-        clientView.getItems().clear();
-        clientView.getItems().addAll(getFiles(currentClientDir));
+        deleteOnClientBtn.setGraphic(new ImageView(DELETE_CLIENT));
+        deleteOnServerBtn.setGraphic(new ImageView(DELETE_CLOUD));
 
         // переход в папку на уровень выше
         backBtn.setOnMouseClicked(event -> {
@@ -153,6 +158,7 @@ public class NettyController implements Initializable {
             public ListCell<String> call(ListView<String> param) {
                 ListCell<String> listCell = new ListCell<String>() {
                     ImageView imageView = new ImageView();
+
                     @Override
                     public void updateItem(String name, boolean empty) {
                         super.updateItem(name, empty);
@@ -567,5 +573,14 @@ public class NettyController implements Initializable {
 
     public void disconnect(ActionEvent actionEvent) {
         closeConnectionAndResources();
+    }
+
+    public void getContext(ContextMenuEvent contextMenuEvent) {
+    }
+
+    public void deleteOnClient(ActionEvent actionEvent) {
+    }
+
+    public void deleteOnServerBtn(ActionEvent actionEvent) {
     }
 }
