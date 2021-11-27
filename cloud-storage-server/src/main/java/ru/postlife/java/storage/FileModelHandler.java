@@ -6,12 +6,15 @@ import lombok.extern.slf4j.Slf4j;
 import ru.postlife.java.model.FileList;
 import ru.postlife.java.model.FileModel;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -41,7 +44,8 @@ public class FileModelHandler extends SimpleChannelInboundHandler<FileModel> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FileModel o) throws Exception {
         String filePath = o.getFilePath();
-        Path file = serverDir.resolve(o.getOwner()).resolve(filePath);
+        Path path = serverDir.resolve(o.getOwner());
+        Path file = path.resolve(filePath);
         if (!Files.exists(file.getParent())) {
             Files.createDirectories(file.getParent());
         }
@@ -59,17 +63,28 @@ public class FileModelHandler extends SimpleChannelInboundHandler<FileModel> {
             log.debug("close stream for receive file:{}", filePath);
 
             // отправка списка файлов
-            List<String> files = Files.list(file.getParent()).map(p -> p.getFileName().toString()).collect(Collectors.toList());
+            List<String> filenames = Files.list(file.getParent()).map(p -> p.getFileName().toString())
+                    .collect(Collectors.toList());
             FileList model = new FileList();
+            model.setFilenames(filenames);
             model.setOwner(o.getOwner());
+
+            // 2 способ
+            Map<String, Boolean> filesMap = new HashMap<>();
+            for (String filename : filenames) {
+                File f = file.getParent().resolve(filename).toFile();
+                filesMap.put(filename, f.isDirectory());
+            }
+            model.setFilesInfoMap(filesMap);
+
             if (file.getParent().getNameCount() == 3) {
                 model.setPath("");
             } else {
                 model.setPath(file.subpath(3, file.getNameCount() - 1).toString());
             }
-            model.setFiles(files);
+
             ctx.writeAndFlush(model);
-            log.debug("send list files to user:{}; from path:{}; files:{}", o.getOwner(), filePath, model.getFiles());
+            log.debug("send list files to user:{}; from path:{}; filenames:{}; filesMap:{}", o.getOwner(), filePath, filenames, filesMap);
         }
     }
 }
