@@ -205,7 +205,7 @@ public class NettyController implements Initializable {
             uploadItem.setGraphic(new ImageView(UPLOAD_SMALL));
             uploadItem.setOnAction(event -> {
                 try {
-                    sendFile(cell.getItem());
+                    upload(cell.getItem());
                 } catch (Exception e) {
                     log.error("e", e);
                 }
@@ -422,75 +422,98 @@ public class NettyController implements Initializable {
         }
     }
 
-    public void sendFile(ActionEvent actionEvent) throws IOException {
+    public void upload(ActionEvent actionEvent) throws IOException {
         if (socket != null && !socket.isClosed()) {
-            sendFile(clientView.getSelectionModel().getSelectedItem());
+            upload(clientView.getSelectionModel().getSelectedItem());
         } else {
             showErrorStringMessage("No authorization on the server");
             log.warn("No authorization on the server");
         }
     }
 
-    public void sendFile(String filename) {
-        // TODO: 27.11.2021 отправка папки
+    public void upload(String filename) {
         if (!authModel.isAuth()) {
             showErrorStringMessage("You dont auth!");
             return;
         }
+        Path myFile = currentClientDir.resolve(filename);
+        log.debug("try send file:{}", myFile.toFile());
+        if (!myFile.toFile().exists()) {
+            showErrorStringMessage(String.format("File %s not exist!", filename));
+            log.error("file:{} not exists", filename);
+            return;
+        }
         Thread thread = new Thread(() -> {
-            Path myFile = currentClientDir.resolve(filename);
-            log.debug("try send file:{}", myFile.toFile());
-            if (!myFile.toFile().exists()) {
-                showErrorStringMessage(String.format("File %s is not exist!", filename));
-                log.error("file:{} not exists", filename);
-                return;
-            }
             if (myFile.toFile().isDirectory()) {
-                showErrorStringMessage(String.format("Cannot send directory %s!", filename));
-                log.error("file:{} is directory", filename);
-                return;
-            }
-
-            long fileLength = myFile.toFile().length();
-            long batchCount = (fileLength + BUFFER_SIZE - 1) / BUFFER_SIZE;
-            if (batchCount == 0) {
-                showErrorStringMessage(String.format("File %s is empty!", filename));
-                log.error("file:{} is empty", filename);
-                return;
-            }
-            long i = 1;
-            log.debug("upload file:{}; length:{}; batch count:{} ", filename, fileLength, batchCount);
-
-            try (FileInputStream fis = new FileInputStream(myFile.toFile())) {
-                while (fis.available() > 0) {
-                    int read = fis.read(buf);
-
-                    FileModel model = new FileModel();
-                    model.setOwner(authModel.getLogin());
-                    model.setFilePath(myFile.subpath(2, myFile.getNameCount()).toString());
-                    model.setData(buf);
-                    model.setCountBatch(batchCount);
-                    model.setCurrentBatch(i++);
-                    model.setBatchLength(read);
-
-                    os.writeObject(model);
-                    log.debug("send file:{}, batch :{}/{}", filename, model.getCurrentBatch(), model.getCountBatch());
-
-                    double current = (double) i / batchCount;
-                    progressBar.setProgress(current);
+                try {
+                    Files.walk(myFile).forEach(this::sendFileToServer);
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-            } catch (IOException e) {
-                log.error("e", e);
+            } else {
+                sendFileToServer(myFile);
+            }
+            FileList fileList = new FileList();
+            fileList.setOwner(authModel.getLogin());
+            fileList.setFilenames(new ArrayList<>());
+            if (currentClientDir.getNameCount() > 2) {
+                fileList.setPath(currentClientDir.subpath(2, currentClientDir.getNameCount()).toString());
             }
             try {
+                os.writeObject(fileList);
                 os.flush();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            log.debug("upload file:{} is successful", filename);
-            Platform.runLater(() -> info.setText(String.format("Upload file %s is successful", filename)));
+            log.debug("request files for user:{} for path:{}", authModel.getLogin(), fileList.getPath());
         });
         thread.start();
+    }
+
+    private void sendFileToServer(Path myFile) {
+        if (myFile.toFile().isDirectory()) {
+            return;
+        }
+        String filename = myFile.toFile().getName();
+
+        long fileLength = myFile.toFile().length();
+        long batchCount = (fileLength + BUFFER_SIZE - 1) / BUFFER_SIZE;
+        if (batchCount == 0) {
+            //showErrorStringMessage(String.format("File %s is empty!", filename));
+            log.error("file:{} is empty", filename);
+            return;
+        }
+        long i = 1;
+        log.debug("upload file:{}; length:{}; batch count:{} ", filename, fileLength, batchCount);
+
+        try (FileInputStream fis = new FileInputStream(myFile.toFile())) {
+            while (fis.available() > 0) {
+                int read = fis.read(buf);
+
+                FileModel model = new FileModel();
+                model.setOwner(authModel.getLogin());
+                model.setFilePath(myFile.subpath(2, myFile.getNameCount()).toString());
+                model.setData(buf);
+                model.setCountBatch(batchCount);
+                model.setCurrentBatch(i++);
+                model.setBatchLength(read);
+
+                os.writeObject(model);
+                log.debug("send file:{}, batch :{}/{}", filename, model.getCurrentBatch(), model.getCountBatch());
+
+                double current = (double) i / batchCount;
+                progressBar.setProgress(current);
+            }
+        } catch (IOException e) {
+            log.error("e", e);
+        }
+        try {
+            os.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        log.debug("upload file:{} is successful", filename);
+        Platform.runLater(() -> info.setText(String.format("Upload file %s is successful", filename)));
     }
 
     public void download(ActionEvent actionEvent) throws IOException {
@@ -527,9 +550,19 @@ public class NettyController implements Initializable {
 
     public void deleteOnClient(String filename) throws IOException {
         Path filePath = currentClientDir.resolve(filename);
-        Files.deleteIfExists(filePath);
+
+        if (filePath.toFile().isFile()) {
+            if (Files.deleteIfExists(filePath))
+                log.debug("delete file:\"{}\" from path:\"{}\"", filename, filePath);
+        } else {
+            Files.walk(filePath)
+                    .sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+            log.debug("delete directory:\"{}\" from path:\"{}\"", filename, filePath);
+        }
         log.info("File:{} was deleted on client", filePath);
-        info.setText(String.format("File %s was deleted", filename));
+        //info.setText(String.format("File %s was deleted", filename));
     }
 
     public void deleteOnServer(ActionEvent actionEvent) throws IOException {

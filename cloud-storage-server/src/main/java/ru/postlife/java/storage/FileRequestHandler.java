@@ -45,12 +45,8 @@ public class FileRequestHandler extends SimpleChannelInboundHandler<FileRequest>
         File myFile = serverDir.resolve(owner).resolve(filePath).resolve(fileName).toFile();
 
         if (myFile.isDirectory()) {
-            // TODO: 24.11.2021 добавить отправку всех файлов из этой папки
             Files.walk(myFile.toPath())
-                    .forEach(path -> {
-                        System.out.println(path);
-                        sendFileToClient(ctx, path.toFile(), owner);
-                    });
+                    .forEach(path -> sendFileToClient(ctx, path.toFile(), owner));
         } else {
             sendFileToClient(ctx, myFile, owner);
         }
