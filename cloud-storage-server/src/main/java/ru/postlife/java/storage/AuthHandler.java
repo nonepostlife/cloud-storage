@@ -16,7 +16,7 @@ public class AuthHandler extends SimpleChannelInboundHandler<AuthModel> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        log.error("e", cause);
+        log.error("{}", cause.getMessage());
     }
 
     @Override

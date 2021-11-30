@@ -11,6 +11,9 @@ public class NettyApp extends Application {
     public void start(Stage primaryStage) throws Exception {
         Parent parent = FXMLLoader.load(getClass().getResource("form.fxml"));
         primaryStage.setScene(new Scene(parent));
+        primaryStage.setTitle("CloudStorage");
+        primaryStage.setMinWidth(400);
+        primaryStage.setMinHeight(600);
         primaryStage.show();
     }
 }

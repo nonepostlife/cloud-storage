@@ -43,7 +43,7 @@ public class FileListHandler extends SimpleChannelInboundHandler<FileList> {
                 return;
             }
             path = path.resolve(o.getPath());
-            log.debug("user:{} request list of files from path:{}", o.getOwner(), path);
+            log.debug("user:{} request list of files from path:\"{}\"", o.getOwner(), path);
             if (path.toFile().exists()) {
 
                 List<String> filenames = Files.list(path).map(p -> p.getFileName().toString())
@@ -65,7 +65,7 @@ public class FileListHandler extends SimpleChannelInboundHandler<FileList> {
                 }
 
                 ctx.writeAndFlush(o);
-                log.debug("send list files to user:{}, from path:{}, files:{}", o.getOwner(), path, filenames);
+                log.debug("send list files to user:{}, from path:\"{}\", files:\"{}\"", o.getOwner(), path, filenames);
             } else {
                 o.setFilesInfoMap(new HashMap<>());
                 if (path.getNameCount() == 3) {
@@ -75,7 +75,7 @@ public class FileListHandler extends SimpleChannelInboundHandler<FileList> {
                 }
 
                 ctx.writeAndFlush(o);
-                log.debug("send list files to user:{}, from path:{}, files:{}", o.getOwner(), path, o.getFilenames());
+                log.debug("send list files to user:{}, from path:\"{}\", files:\"{}\"", o.getOwner(), path, o.getFilenames());
             }
         }
     }

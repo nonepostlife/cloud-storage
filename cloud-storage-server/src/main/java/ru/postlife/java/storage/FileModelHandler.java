@@ -20,11 +20,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FileModelHandler extends SimpleChannelInboundHandler<FileModel> {
 
-    private static int BUFFER_SIZE = 1024;
-    private byte[] buf;
-    private static int counter = 0;
-
-    private Path serverDir;
+    private final Path serverDir;
     private OutputStream fos;
 
     public FileModelHandler() {
@@ -51,40 +47,17 @@ public class FileModelHandler extends SimpleChannelInboundHandler<FileModel> {
         }
         if (o.getCurrentBatch() == 1) {
             fos = new FileOutputStream(file.toFile());
-            log.debug("download file:{}", filePath);
-            log.debug("open stream for receive file:{}", filePath);
+            log.debug("download file:\"{}\"", filePath);
+            log.debug("open stream for receive file:\"{}\"", filePath);
         }
 
         fos.write(o.getData(), 0, o.getBatchLength());
-        log.debug("received file:{}; batch:{}/{}", filePath, o.getCurrentBatch(), o.getCountBatch());
+        log.debug("received file:\"{}\"; batch:{}/{}", filePath, o.getCurrentBatch(), o.getCountBatch());
 
         if (o.getCurrentBatch() == o.getCountBatch()) {
             fos.close();
-            log.debug("close stream for receive file:{}", filePath);
-
-            // отправка списка файлов
-            List<String> filenames = Files.list(file.getParent()).map(p -> p.getFileName().toString())
-                    .collect(Collectors.toList());
-            FileList model = new FileList();
-            model.setFilenames(filenames);
-            model.setOwner(o.getOwner());
-
-            // 2 способ
-            Map<String, Boolean> filesMap = new HashMap<>();
-            for (String filename : filenames) {
-                File f = file.getParent().resolve(filename).toFile();
-                filesMap.put(filename, f.isDirectory());
-            }
-            model.setFilesInfoMap(filesMap);
-
-            if (file.getParent().getNameCount() == 3) {
-                model.setPath("");
-            } else {
-                model.setPath(file.subpath(3, file.getNameCount() - 1).toString());
-            }
-
-            ctx.writeAndFlush(model);
-            log.debug("send list files to user:{}; from path:{}; filenames:{}; filesMap:{}", o.getOwner(), filePath, filenames, filesMap);
+            log.debug("close stream for receive file:\"{}\"", filePath);
+            log.debug("download file:\"{}\" is successful", filePath);
         }
     }
 }

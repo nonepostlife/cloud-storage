@@ -17,7 +17,7 @@ public class NettyServer {
 
     public static void main(String[] args) {
 
-        AuthService authService;
+        AuthService authService = null;
 
         EventLoopGroup auth = new NioEventLoopGroup(1);
         EventLoopGroup worker = new NioEventLoopGroup();
@@ -27,6 +27,7 @@ public class NettyServer {
             authService.start();
 
             ServerBootstrap bootstrap = new ServerBootstrap();
+            AuthService finalAuthService = authService;
             bootstrap.channel(NioServerSocketChannel.class)
                     .group(auth, worker)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -36,10 +37,11 @@ public class NettyServer {
                             channel.pipeline().addLast(
                                     new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
                                     new ObjectEncoder(),
-                                    new AuthHandler(authService),
+                                    new AuthHandler(finalAuthService),
                                     new FileListHandler(),
                                     new FileRequestHandler(),
                                     new FileModelHandler(),
+                                    new FileDeleteRequestHandler(),
                                     new ObjectHandler()
                             );
                         }
@@ -52,6 +54,7 @@ public class NettyServer {
         } finally {
             auth.shutdownGracefully();
             worker.shutdownGracefully();
+            authService.stop();
         }
     }
 }

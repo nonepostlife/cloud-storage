@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -27,7 +28,6 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.util.Callback;
 
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -59,6 +59,11 @@ public class NettyController implements Initializable {
     private final Image DELETE_CLIENT = new Image(getClass().getResource("icons/delete_client.png").toString());
     private final Image DELETE_CLOUD = new Image(getClass().getResource("icons/delete_cloud.png").toString());
 
+    private final Image DOWNLOAD_SMALL = new Image(getClass().getResource("icons/btn_download.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
+    private final Image UPLOAD_SMALL = new Image(getClass().getResource("icons/btn_upload.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
+    private final Image DELETE_CLIENT_SMALL = new Image(getClass().getResource("icons/delete_client.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
+    private final Image DELETE_CLOUD_SMALL = new Image(getClass().getResource("icons/delete_cloud.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
+
     public ProgressBar progressBar;
     public ListView<String> clientView;
     public TextField input;
@@ -69,10 +74,13 @@ public class NettyController implements Initializable {
     public Button backBtn;
     public Button deleteOnClientBtn;
     public Button deleteOnServerBtn;
+    public Label info;
 
     private Socket socket;
     private ObjectEncoderOutputStream os;
     private ObjectDecoderInputStream is;
+
+    private WatchService watchService;
 
     private byte[] buf;
     private Path clientDir;
@@ -153,84 +161,104 @@ public class NettyController implements Initializable {
             }
         });
 
-        clientView.setCellFactory(new Callback<ListView<String>, ListCell<String>>() {
-            @Override
-            public ListCell<String> call(ListView<String> param) {
-                ListCell<String> listCell = new ListCell<String>() {
-                    ImageView imageView = new ImageView();
+        clientView.setCellFactory(lv -> {
+            ListCell<String> cell = new ListCell<String>() {
+                ImageView imageView = new ImageView();
 
-                    @Override
-                    public void updateItem(String name, boolean empty) {
-                        super.updateItem(name, empty);
-                        if (empty) {
-                            setText(null);
-                            setGraphic(null);
-                        } else {
-                            File file = currentClientDir.resolve(name).toFile();
-                            // на клиенте
-                            if (file.exists()) {
-                                if (!currentServerFilesMap.containsKey(name)) {
-                                    if (file.isDirectory())
-                                        imageView.setImage(FOLDER);
-                                    else if (file.isFile())
-                                        imageView.setImage(FILE);
-                                } else { // + есть на сервере
-                                    if (file.isDirectory())
-                                        imageView.setImage(FOLDER_SYNC);
-                                    else if (file.isFile())
-                                        imageView.setImage(FILE_SYNC);
-                                }
-                            } else { // только на сервере
-                                if (currentServerFilesMap.get(name))
-                                    imageView.setImage(FOLDER_CLOUD);
-                                else
-                                    imageView.setImage(FILE_CLOUD);
+                @Override
+                public void updateItem(String name, boolean empty) {
+                    super.updateItem(name, empty);
+                    if (empty) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        File file = currentClientDir.resolve(name).toFile();
+                        // на клиенте
+                        if (file.exists()) {
+                            if (!currentServerFilesMap.containsKey(name)) {
+                                if (file.isDirectory())
+                                    imageView.setImage(FOLDER);
+                                else if (file.isFile())
+                                    imageView.setImage(FILE);
+                            } else { // + есть на сервере
+                                if (file.isDirectory())
+                                    imageView.setImage(FOLDER_SYNC);
+                                else if (file.isFile())
+                                    imageView.setImage(FILE_SYNC);
                             }
-                            setText(name);
-                            setGraphic(imageView);
+                        } else { // только на сервере
+                            if (currentServerFilesMap.get(name))
+                                imageView.setImage(FOLDER_CLOUD);
+                            else
+                                imageView.setImage(FILE_CLOUD);
                         }
+                        setText(name);
+                        setGraphic(imageView);
                     }
-                };
-//                ContextMenu contextMenu = new ContextMenu();
-//                MenuItem editItem = new MenuItem();
-//                editItem.textProperty().bind(Bindings.format("Edit \"%s\"", listCell.itemProperty()));
-//                editItem.setOnAction(event -> {
-//                    String item = listCell.getItem();
-//                    // code to edit item...
-//                });
-//                MenuItem deleteItem = new MenuItem();
-//                deleteItem.textProperty().bind(Bindings.format("Delete \"%s\"", listCell.itemProperty()));
-//                deleteItem.setOnAction(event -> clientView.getItems().remove(listCell.getItem()));
-//                contextMenu.getItems().addAll(editItem, deleteItem);
-//
-//                listCell.textProperty().bind(listCell.itemProperty());
-//
-//                listCell.emptyProperty().addListener((obs, wasEmpty, isNowEmpty) -> {
-//                    if (isNowEmpty) {
-//                        listCell.setContextMenu(null);
-//                    } else {
-//                        listCell.setContextMenu(contextMenu);
-//                    }
-//                });
-                listCell.setOnDragDetected((MouseEvent event) ->
-                {
-                    System.out.println("listcell setOnDragDetected");
-                    Dragboard db = listCell.startDragAndDrop(TransferMode.COPY);
-                    ClipboardContent content = new ClipboardContent();
-                    if (listCell.getItem() != null) {
-                        content.putString(listCell.getItem());
-                        db.setContent(content);
-                        System.out.println(db.getString());
-                        event.consume();
-                    }
-                });
-                return listCell;
-            }
-        });
+                }
+            };
 
-        WatchService watchService = FileSystems.getDefault().newWatchService();
+            ContextMenu contextMenu = new ContextMenu();
+            // upload
+            MenuItem uploadItem = new MenuItem();
+            uploadItem.textProperty().bind(Bindings.format("Upload on server \"%s\"", cell.itemProperty()));
+            uploadItem.setGraphic(new ImageView(UPLOAD_SMALL));
+            uploadItem.setOnAction(event -> {
+                try {
+                    upload(cell.getItem());
+                } catch (Exception e) {
+                    log.error("e", e);
+                }
+            });
+            // download
+            MenuItem downloadItem = new MenuItem();
+            downloadItem.textProperty().bind(Bindings.format("Download from server \"%s\"", cell.itemProperty()));
+            downloadItem.setGraphic(new ImageView(DOWNLOAD_SMALL));
+            downloadItem.setOnAction(event -> {
+                try {
+                    download(cell.getItem());
+                } catch (Exception e) {
+                    log.error("e", e);
+                }
+            });
+            // delete on client
+            MenuItem deleteOnClientItem = new MenuItem();
+            deleteOnClientItem.textProperty().bind(Bindings.format("Delete \"%s\"", cell.itemProperty()));
+            deleteOnClientItem.setGraphic(new ImageView(DELETE_CLIENT_SMALL));
+            deleteOnClientItem.setOnAction(event -> {
+                try {
+                    deleteOnClient(cell.getItem());
+                } catch (IOException e) {
+                    log.error("e", e);
+                }
+            });
+            // delete on client
+            MenuItem deleteOnCloudItem = new MenuItem();
+            deleteOnCloudItem.textProperty().bind(Bindings.format("Delete on cloud \"%s\"", cell.itemProperty()));
+            deleteOnCloudItem.setGraphic(new ImageView(DELETE_CLOUD_SMALL));
+            deleteOnCloudItem.setOnAction(event -> {
+                try {
+                    deleteOnServer(cell.getItem());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+            contextMenu.getItems().addAll(uploadItem, downloadItem, deleteOnClientItem, deleteOnCloudItem);
+
+            cell.textProperty().bind(cell.itemProperty());
+            cell.emptyProperty().addListener((obs, wasEmpty, isNowEmpty) -> {
+                if (isNowEmpty) {
+                    cell.setContextMenu(null);
+                } else {
+                    cell.setContextMenu(contextMenu);
+                }
+            });
+            cell.textProperty().unbind();
+            return cell;
+        });
+        watchService = FileSystems.getDefault().newWatchService();
         runAsync(watchService);
-        currentClientDir.register(watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
+        registerRecursive(clientDir);
 
         progressBar.setProgress(0);
     }
@@ -349,13 +377,17 @@ public class NettyController implements Initializable {
                     Path file = clientDir.resolve(filePath);
                     if (!file.getParent().toFile().exists()) {
                         Files.createDirectories(file.getParent());
+                        registerRecursive(file.getParent());
                     }
                     try (FileOutputStream fos = new FileOutputStream(file.toFile())) {
                         log.debug("try download file:{}", filePath);
                         log.debug("open stream for receive file:{}", filePath);
+                        Platform.runLater(() -> progressBar.setProgress(0));
                         while (true) {
                             fos.write(model.getData(), 0, model.getBatchLength());
                             log.debug("received file:{}; batch:{}/{}", filePath, model.getCurrentBatch(), model.getCountBatch());
+                            double currentBatch = (double) model.getCurrentBatch() / model.getCountBatch();
+                            Platform.runLater(() -> progressBar.setProgress(currentBatch));
                             if (model.getCurrentBatch() == model.getCountBatch()) {
                                 break;
                             }
@@ -363,6 +395,7 @@ public class NettyController implements Initializable {
                         }
                         log.debug("close stream for receive file:{}", filePath);
                         log.debug("download file:{} is success", filePath);
+
                     } catch (Exception e) {
                         log.error("e", e);
                     }
@@ -389,42 +422,69 @@ public class NettyController implements Initializable {
         }
     }
 
-    public void sendFile(ActionEvent actionEvent) throws IOException {
+    public void upload(ActionEvent actionEvent) throws IOException {
         if (socket != null && !socket.isClosed()) {
-            sendFile(clientView.getSelectionModel().getSelectedItem());
+            upload(clientView.getSelectionModel().getSelectedItem());
         } else {
             showErrorStringMessage("No authorization on the server");
             log.warn("No authorization on the server");
         }
     }
 
-    public void sendFile(String fileName) throws IOException {
+    public void upload(String filename) {
         if (!authModel.isAuth()) {
             showErrorStringMessage("You dont auth!");
             return;
         }
-        Path myFile = currentClientDir.resolve(fileName);
+        Path myFile = currentClientDir.resolve(filename);
         log.debug("try send file:{}", myFile.toFile());
         if (!myFile.toFile().exists()) {
-            showErrorStringMessage(String.format("File %s is not exist!", fileName));
-            log.error("file:{} not exists", fileName);
+            showErrorStringMessage(String.format("File %s not exist!", filename));
+            log.error("file:{} not exists", filename);
             return;
         }
+        Thread thread = new Thread(() -> {
+            if (myFile.toFile().isDirectory()) {
+                try {
+                    Files.walk(myFile).forEach(this::sendFileToServer);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                sendFileToServer(myFile);
+            }
+            FileList fileList = new FileList();
+            fileList.setOwner(authModel.getLogin());
+            fileList.setFilenames(new ArrayList<>());
+            if (currentClientDir.getNameCount() > 2) {
+                fileList.setPath(currentClientDir.subpath(2, currentClientDir.getNameCount()).toString());
+            }
+            try {
+                os.writeObject(fileList);
+                os.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            log.debug("request files for user:{} for path:{}", authModel.getLogin(), fileList.getPath());
+        });
+        thread.start();
+    }
+
+    private void sendFileToServer(Path myFile) {
         if (myFile.toFile().isDirectory()) {
-            showErrorStringMessage(String.format("Cannot send directory %s!", fileName));
-            log.error("file:{} is directory", fileName);
             return;
         }
+        String filename = myFile.toFile().getName();
 
         long fileLength = myFile.toFile().length();
         long batchCount = (fileLength + BUFFER_SIZE - 1) / BUFFER_SIZE;
         if (batchCount == 0) {
-            showErrorStringMessage(String.format("File %s is empty!", fileName));
-            log.error("file:{} is empty", fileName);
+            //showErrorStringMessage(String.format("File %s is empty!", filename));
+            log.error("file:{} is empty", filename);
             return;
         }
         long i = 1;
-        log.debug("upload file:{}; length:{}; batch count:{} ", fileName, fileLength, batchCount);
+        log.debug("upload file:{}; length:{}; batch count:{} ", filename, fileLength, batchCount);
 
         try (FileInputStream fis = new FileInputStream(myFile.toFile())) {
             while (fis.available() > 0) {
@@ -439,14 +499,21 @@ public class NettyController implements Initializable {
                 model.setBatchLength(read);
 
                 os.writeObject(model);
-                log.debug("send file:{}, batch :{}/{}", fileName, model.getCurrentBatch(), model.getCountBatch());
+                log.debug("send file:{}, batch :{}/{}", filename, model.getCurrentBatch(), model.getCountBatch());
 
                 double current = (double) i / batchCount;
                 progressBar.setProgress(current);
             }
+        } catch (IOException e) {
+            log.error("e", e);
         }
-        os.flush();
-        log.debug("upload file:{} is successful", fileName);
+        try {
+            os.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        log.debug("upload file:{} is successful", filename);
+        Platform.runLater(() -> info.setText(String.format("Upload file %s is successful", filename)));
     }
 
     public void download(ActionEvent actionEvent) throws IOException {
@@ -472,6 +539,55 @@ public class NettyController implements Initializable {
         log.debug("request file:{}\\\\{}", clientPath.getText(), fileName);
     }
 
+    public void deleteOnClient(ActionEvent actionEvent) throws IOException {
+        if (socket != null && !socket.isClosed()) {
+            deleteOnClient(clientView.getSelectionModel().getSelectedItem());
+        } else {
+            showErrorStringMessage("No authorization on the server");
+            log.warn("No authorization on the server");
+        }
+    }
+
+    public void deleteOnClient(String filename) throws IOException {
+        Path filePath = currentClientDir.resolve(filename);
+
+        if (filePath.toFile().isFile()) {
+            if (Files.deleteIfExists(filePath))
+                log.debug("delete file:\"{}\" from path:\"{}\"", filename, filePath);
+        } else {
+            Files.walk(filePath)
+                    .sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+            log.debug("delete directory:\"{}\" from path:\"{}\"", filename, filePath);
+        }
+        log.info("File:{} was deleted on client", filePath);
+        //info.setText(String.format("File %s was deleted", filename));
+    }
+
+    public void deleteOnServer(ActionEvent actionEvent) throws IOException {
+        if (socket != null && !socket.isClosed()) {
+            deleteOnServer(clientView.getSelectionModel().getSelectedItem());
+        } else {
+            showErrorStringMessage("No authorization on the server");
+            log.warn("No authorization on the server");
+        }
+    }
+
+    public void deleteOnServer(String fileName) throws IOException {
+        if (!authModel.isAuth()) {
+            showErrorStringMessage("You dont auth!");
+            return;
+        }
+        FileDeleteRequest deleteRequest = new FileDeleteRequest();
+        deleteRequest.setOwner(authModel.getLogin());
+        deleteRequest.setFilePath(clientPath.getText());
+        deleteRequest.setFileName(fileName);
+        os.writeObject(deleteRequest);
+        os.flush();
+        log.debug("file delete request: file:{}\\\\{}", clientPath.getText(), fileName);
+    }
+
     private void runAsync(WatchService watchService) {
         Thread thread = new Thread(() -> {
             System.out.println("Watch service starts listening");
@@ -493,6 +609,17 @@ public class NettyController implements Initializable {
         });
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private void registerRecursive(final Path root) throws IOException {
+        // register all subfolders
+        Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                dir.register(watchService, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     public void openConnectDialog(ActionEvent actionEvent) {
@@ -531,20 +658,8 @@ public class NettyController implements Initializable {
         }
     }
 
-    private void showErrorStringMessage(String message) {
-        Platform.runLater(() -> {
-            new Alert(Alert.AlertType.ERROR, message, ButtonType.OK).showAndWait();
-        });
-    }
-
-    private void showInformStringMessage(String message) {
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Info");
-            alert.setHeaderText(message);
-            alert.setContentText(String.format("Welcome, %s %s!\nWe wish you pleasant work in our application!", authModel.getFirstname(), authModel.getLastname()));
-            alert.showAndWait();
-        });
+    public void disconnect(ActionEvent actionEvent) {
+        closeConnectionAndResources();
     }
 
     private void closeConnectionAndResources() {
@@ -571,16 +686,19 @@ public class NettyController implements Initializable {
         }
     }
 
-    public void disconnect(ActionEvent actionEvent) {
-        closeConnectionAndResources();
+    private void showErrorStringMessage(String message) {
+        Platform.runLater(() -> {
+            new Alert(Alert.AlertType.ERROR, message, ButtonType.OK).showAndWait();
+        });
     }
 
-    public void getContext(ContextMenuEvent contextMenuEvent) {
-    }
-
-    public void deleteOnClient(ActionEvent actionEvent) {
-    }
-
-    public void deleteOnServerBtn(ActionEvent actionEvent) {
+    private void showInformStringMessage(String message) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Info");
+            alert.setHeaderText(message);
+            alert.setContentText(String.format("Welcome, %s %s!\nWe wish you pleasant work in our application!", authModel.getFirstname(), authModel.getLastname()));
+            alert.showAndWait();
+        });
     }
 }

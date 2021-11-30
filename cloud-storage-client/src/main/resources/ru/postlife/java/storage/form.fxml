@@ -110,7 +110,7 @@
          <BorderPane.margin>
             <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
          </BorderPane.margin>
-         <Button fx:id="uploadBtn" alignment="TOP_CENTER" mnemonicParsing="false" onAction="#sendFile">
+         <Button fx:id="uploadBtn" alignment="TOP_CENTER" mnemonicParsing="false" onAction="#upload">
             <padding>
                <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
             </padding>
@@ -125,7 +125,7 @@
                <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
             </padding>
          </Button>
-         <Button fx:id="deleteOnServerBtn" mnemonicParsing="false" onAction="#deleteOnServerBtn">
+         <Button fx:id="deleteOnServerBtn" mnemonicParsing="false" onAction="#deleteOnServer">
             <padding>
                <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
             </padding>
@@ -133,7 +133,7 @@
       </ToolBar>
    </left>
    <center>
-      <ListView fx:id="clientView" onContextMenuRequested="#getContext" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+      <ListView fx:id="clientView" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
          <BorderPane.margin>
             <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
          </BorderPane.margin>

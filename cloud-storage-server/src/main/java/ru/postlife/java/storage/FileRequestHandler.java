@@ -45,12 +45,8 @@ public class FileRequestHandler extends SimpleChannelInboundHandler<FileRequest>
         File myFile = serverDir.resolve(owner).resolve(filePath).resolve(fileName).toFile();
 
         if (myFile.isDirectory()) {
-            // TODO: 24.11.2021 добавить отправку всех файлов из этой папки
             Files.walk(myFile.toPath())
-                    .forEach(path -> {
-                        System.out.println(path);
-                        sendFileToClient(ctx, path.toFile(), owner);
-                    });
+                    .forEach(path -> sendFileToClient(ctx, path.toFile(), owner));
         } else {
             sendFileToClient(ctx, myFile, owner);
         }
@@ -64,10 +60,16 @@ public class FileRequestHandler extends SimpleChannelInboundHandler<FileRequest>
         long fileLength = myFile.length();
         long batchCount = (fileLength + BUFFER_SIZE - 1) / BUFFER_SIZE;
         long i = 1;
-        log.debug("try to upload file:{}; length:{}; batch count:{} ", myFile, fileLength, batchCount);
+        log.debug("try to upload file:\"{}\"; length:{}; batch count:{} ", myFile, fileLength, batchCount);
 
+        String filePath;
+        if (myFile.toPath().getParent().getNameCount() == 3) {
+            filePath = "";
+        } else {
+            filePath = myFile.toPath().getParent().subpath(3, myFile.toPath().getParent().getNameCount()).toString();
+        }
 
-        Path path = Paths.get(myFile.toPath().getParent().subpath(3, myFile.toPath().getParent().getNameCount()).toString(), myFile.getName());
+        Path path = Paths.get(filePath, myFile.getName());
 
         try (FileInputStream fis = new FileInputStream(myFile)) {
             while (fis.available() > 0) {
@@ -82,10 +84,10 @@ public class FileRequestHandler extends SimpleChannelInboundHandler<FileRequest>
                 model.setBatchLength(read);
 
                 ctx.write(model);
-                log.debug("send file:{}; from path:{} batch:{}/{}", myFile.getName(), path.getParent(), model.getCurrentBatch(), model.getCountBatch());
+                log.debug("send file:\"{}\"; from path:\"{}\" batch:{}/{}", myFile.getName(), path.getParent(), model.getCurrentBatch(), model.getCountBatch());
             }
         }
         ctx.flush();
-        log.debug("upload file:{} from path:{} is success", myFile, path.getParent());
+        log.debug("upload file:\"{}\" from path:\"{}\" is success", myFile, path.getParent());
     }
 }
