@@ -9,6 +9,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,8 @@ public class FileListHandler extends SimpleChannelInboundHandler<FileList> {
             Path path = serverDir.resolve(o.getOwner());
             if (!Files.exists(serverDir.resolve(o.getOwner()))) {
                 Files.createDirectories(path);
+                o.setFilenames(new ArrayList<>());
+                o.setFilesInfoMap(new HashMap<>());
                 ctx.writeAndFlush(o);
                 return;
             }

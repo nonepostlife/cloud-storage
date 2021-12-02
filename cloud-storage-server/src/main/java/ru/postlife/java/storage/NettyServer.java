@@ -42,6 +42,7 @@ public class NettyServer {
                                     new FileRequestHandler(),
                                     new FileModelHandler(),
                                     new FileDeleteRequestHandler(),
+                                    new FileRenameRequestHandler(),
                                     new ObjectHandler()
                             );
                         }

@@ -58,11 +58,15 @@ public class NettyController implements Initializable {
     private final Image UPLOAD = new Image(getClass().getResource("icons/btn_upload.png").toString());
     private final Image DELETE_CLIENT = new Image(getClass().getResource("icons/delete_client.png").toString());
     private final Image DELETE_CLOUD = new Image(getClass().getResource("icons/delete_cloud.png").toString());
+    private final Image RENAME_CLIENT = new Image(getClass().getResource("icons/rename_client.png").toString());
+    private final Image RENAME_CLOUD = new Image(getClass().getResource("icons/rename_cloud.png").toString());
 
     private final Image DOWNLOAD_SMALL = new Image(getClass().getResource("icons/btn_download.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
     private final Image UPLOAD_SMALL = new Image(getClass().getResource("icons/btn_upload.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
     private final Image DELETE_CLIENT_SMALL = new Image(getClass().getResource("icons/delete_client.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
     private final Image DELETE_CLOUD_SMALL = new Image(getClass().getResource("icons/delete_cloud.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
+    private final Image RENAME_CLIENT_SMALL = new Image(getClass().getResource("icons/rename_client.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
+    private final Image RENAME_CLOUD_SMALL = new Image(getClass().getResource("icons/rename_cloud.png").toString(), ICON_SIZE, ICON_SIZE, false, false);
 
     public ProgressBar progressBar;
     public ListView<String> clientView;
@@ -74,7 +78,10 @@ public class NettyController implements Initializable {
     public Button backBtn;
     public Button deleteOnClientBtn;
     public Button deleteOnServerBtn;
+    public Button renameOnClientBtn;
+    public Button renameOnServerBtn;
     public Label info;
+
 
     private Socket socket;
     private ObjectEncoderOutputStream os;
@@ -109,6 +116,8 @@ public class NettyController implements Initializable {
         uploadBtn.setGraphic(new ImageView(UPLOAD));
         deleteOnClientBtn.setGraphic(new ImageView(DELETE_CLIENT));
         deleteOnServerBtn.setGraphic(new ImageView(DELETE_CLOUD));
+        renameOnClientBtn.setGraphic(new ImageView(RENAME_CLIENT));
+        renameOnServerBtn.setGraphic(new ImageView(RENAME_CLOUD));
 
         // переход в папку на уровень выше
         backBtn.setOnMouseClicked(event -> {
@@ -243,7 +252,19 @@ public class NettyController implements Initializable {
                     e.printStackTrace();
                 }
             });
-            contextMenu.getItems().addAll(uploadItem, downloadItem, deleteOnClientItem, deleteOnCloudItem);
+            // rename on client
+            MenuItem renameOnClientItem = new MenuItem();
+            renameOnClientItem.textProperty().bind(Bindings.format("Rename on client \"%s\"", cell.itemProperty()));
+            renameOnClientItem.setGraphic(new ImageView(RENAME_CLIENT_SMALL));
+            renameOnClientItem.setOnAction(event -> renameOnClient(cell.getItem()));
+
+            // rename on server
+            MenuItem renameOnServerItem = new MenuItem();
+            renameOnServerItem.textProperty().bind(Bindings.format("Rename on server \"%s\"", cell.itemProperty()));
+            renameOnServerItem.setGraphic(new ImageView(RENAME_CLOUD_SMALL));
+            renameOnServerItem.setOnAction(event -> renameOnServer(cell.getItem()));
+
+            contextMenu.getItems().addAll(uploadItem, downloadItem, deleteOnClientItem, deleteOnCloudItem, renameOnClientItem, renameOnServerItem);
 
             cell.textProperty().bind(cell.itemProperty());
             cell.emptyProperty().addListener((obs, wasEmpty, isNowEmpty) -> {
@@ -574,18 +595,89 @@ public class NettyController implements Initializable {
         }
     }
 
-    public void deleteOnServer(String fileName) throws IOException {
+    public void deleteOnServer(String filename) throws IOException {
         if (!authModel.isAuth()) {
             showErrorStringMessage("You dont auth!");
             return;
         }
         FileDeleteRequest deleteRequest = new FileDeleteRequest();
         deleteRequest.setOwner(authModel.getLogin());
-        deleteRequest.setFilePath(clientPath.getText());
-        deleteRequest.setFileName(fileName);
+        if (currentClientDir.getNameCount() > 2) {
+            deleteRequest.setFilePath(currentClientDir.subpath(2, currentClientDir.getNameCount()).toString());
+        }
+        deleteRequest.setFileName(filename);
         os.writeObject(deleteRequest);
         os.flush();
-        log.debug("file delete request: file:{}\\\\{}", clientPath.getText(), fileName);
+        log.debug("file delete request: file:{}\\\\{}", clientPath.getText(), filename);
+    }
+
+    public void renameOnClient(ActionEvent actionEvent) {
+        if (socket != null && !socket.isClosed()) {
+            renameOnClient(clientView.getSelectionModel().getSelectedItem());
+        } else {
+            showErrorStringMessage("No authorization on the server");
+            log.warn("No authorization on the server");
+        }
+    }
+
+    public void renameOnClient(String filename) {
+        log.debug("client start rename file {}", filename);
+        if (!currentClientDir.resolve(filename).toFile().exists()) {
+            showErrorStringMessage(String.format("File/directory %s not exist in your System", filename));
+            log.error("File/directory {} not exist in your System", filename);
+            return;
+        }
+        TextInputDialog dialog = new TextInputDialog(filename);
+        dialog.setTitle(String.format("Rename files %s on client", filename));
+        dialog.setHeaderText("Enter new filename");
+        dialog.setContentText("Name:");
+        Optional<String> result = dialog.showAndWait();
+
+        result.ifPresent(newName -> {
+            //try {
+            log.debug("try rename file:{} to file:{}", filename, newName);
+            if (currentClientDir.resolve(filename).toFile().renameTo(new File(currentClientDir.resolve(newName).toString())))
+                //Files.move(currentClientDir.resolve(filename), currentClientDir.resolve(newName));
+                log.debug("rename file:{} to file:{} is successful", filename, newName);
+//            } catch (IOException e) {
+//                log.error("e", e);
+//            }
+        });
+    }
+
+    public void renameOnServer(ActionEvent actionEvent) {
+        if (socket != null && !socket.isClosed()) {
+            renameOnServer(clientView.getSelectionModel().getSelectedItem());
+        } else {
+            showErrorStringMessage("No authorization on the server");
+            log.warn("No authorization on the server");
+        }
+    }
+
+    public void renameOnServer(String filename) {
+        log.debug("client start request rename file {} on server", filename);
+        TextInputDialog dialog = new TextInputDialog(filename);
+        dialog.setTitle(String.format("Rename files %s on server", filename));
+        dialog.setHeaderText("Enter new filename");
+        dialog.setContentText("Name:");
+        Optional<String> result = dialog.showAndWait();
+
+        result.ifPresent(newName -> {
+            FileRenameRequest renameRequest = new FileRenameRequest();
+            renameRequest.setOwner(authModel.getLogin());
+            if (currentClientDir.getNameCount() > 2) {
+                renameRequest.setFilePath(currentClientDir.subpath(2, currentClientDir.getNameCount()).toString());
+            }
+            renameRequest.setOldName(filename);
+            renameRequest.setNewName(newName);
+            try {
+                os.writeObject(renameRequest);
+                os.flush();
+                log.debug("client request rename file {} to {} on server", filename, newName);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     private void runAsync(WatchService watchService) {
@@ -623,7 +715,7 @@ public class NettyController implements Initializable {
     }
 
     public void openConnectDialog(ActionEvent actionEvent) {
-        if (socket == null) {
+        if (socket == null || socket.isClosed()) {
             try {
                 socket = new Socket("localhost", 8189);
                 os = new ObjectEncoderOutputStream(socket.getOutputStream());
@@ -636,7 +728,7 @@ public class NettyController implements Initializable {
                 showErrorStringMessage("Unable to connect to server!");
             }
         }
-        if (socket != null) {
+        if (socket != null || !socket.isClosed()) {
             try {
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("auth.fxml"));
                 Parent parent = loader.load();
@@ -648,6 +740,10 @@ public class NettyController implements Initializable {
                 stage.initModality(Modality.APPLICATION_MODAL);
                 stage.setScene(scene);
                 stage.showAndWait();
+
+                if (authModel.getLogin().isEmpty() || authModel.getPassword().isEmpty()) {
+                    return;
+                }
 
                 log.debug("send request on auth for user:{}", authModel.getLogin());
                 os.writeObject(authModel);
@@ -666,6 +762,7 @@ public class NettyController implements Initializable {
         try {
             if (is != null) {
                 is.close();
+                is = null;
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -684,6 +781,7 @@ public class NettyController implements Initializable {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        Platform.runLater(() -> clientView.getItems().clear());
     }
 
     private void showErrorStringMessage(String message) {
