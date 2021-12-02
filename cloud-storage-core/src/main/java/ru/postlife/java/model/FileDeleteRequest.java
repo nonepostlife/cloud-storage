@@ -10,5 +10,7 @@ public class FileDeleteRequest implements Serializable {
     private String filePath;
     private String fileName;
 
-    public FileDeleteRequest() {}
+    public FileDeleteRequest() {
+        this.filePath = "";
+    }
 }

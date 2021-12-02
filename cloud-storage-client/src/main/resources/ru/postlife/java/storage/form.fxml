@@ -56,7 +56,7 @@
          <MenuBar prefHeight="0.0" prefWidth="353.0">
             <Menu mnemonicParsing="false" text="File">
                <MenuItem mnemonicParsing="false" onAction="#openConnectDialog" text="Connect"/>
-               <MenuItem mnemonicParsing="false" text="Disconnect"/>
+               <MenuItem mnemonicParsing="false" text="Disconnect" onAction="#disconnect"/>
                <MenuItem mnemonicParsing="false" text="Quit"/>
             </Menu>
             <Menu mnemonicParsing="false" text="Edit">
@@ -126,6 +126,16 @@
             </padding>
          </Button>
          <Button fx:id="deleteOnServerBtn" mnemonicParsing="false" onAction="#deleteOnServer">
+            <padding>
+               <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
+            </padding>
+         </Button>
+         <Button fx:id="renameOnClientBtn" mnemonicParsing="false" onAction="#renameOnClient">
+            <padding>
+               <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
+            </padding>
+         </Button>
+         <Button fx:id="renameOnServerBtn" mnemonicParsing="false" onAction="#renameOnServer">
             <padding>
                <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
             </padding>

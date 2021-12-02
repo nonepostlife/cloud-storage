@@ -14,4 +14,9 @@ public class AuthModel implements Serializable {
 
     private String response;
     private boolean isAuth;
+
+    public AuthModel() {
+        login = "";
+        password = "";
+    }
 }
