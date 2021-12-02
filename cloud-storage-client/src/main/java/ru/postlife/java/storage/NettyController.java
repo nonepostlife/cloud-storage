@@ -738,6 +738,7 @@ public class NettyController implements Initializable {
                 Scene scene = new Scene(parent, 300, 200);
                 Stage stage = new Stage();
                 stage.initModality(Modality.APPLICATION_MODAL);
+                stage.setTitle("Auth form");
                 stage.setScene(scene);
                 stage.showAndWait();
 
