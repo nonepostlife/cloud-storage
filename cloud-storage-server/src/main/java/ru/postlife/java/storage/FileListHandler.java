@@ -53,7 +53,6 @@ public class FileListHandler extends SimpleChannelInboundHandler<FileList> {
                         .collect(Collectors.toList());
                 o.setFilenames(filenames);
 
-                // 2 способ
                 Map<String, Boolean> filesMap = new HashMap<>();
                 for (String filename : filenames) {
                     File file = path.resolve(filename).toFile();

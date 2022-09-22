@@ -43,7 +43,6 @@ public class FileDeleteRequestHandler extends SimpleChannelInboundHandler<FileDe
         String fileName = o.getFileName();
         Path file = serverDir.resolve(owner).resolve(filePath).resolve(fileName);
 
-//        if (file.toFile().exists()) {
         if (file.toFile().isFile()) {
             if (Files.deleteIfExists(file))
                 log.debug("user:{} delete file:\"{}\" from path:\"{}\"", owner, fileName, filePath);
@@ -54,11 +53,6 @@ public class FileDeleteRequestHandler extends SimpleChannelInboundHandler<FileDe
                     .forEach(File::delete);
             log.debug("user:{} delete directory:\"{}\" from path:\"{}\"", owner, fileName, filePath);
         }
-//        } else {
-//            log.error("File/directory {} not exist in cloud storage", fileName);
-//            ctx.writeAndFlush(String.format("File/directory %s not exist in cloud storage", fileName));
-//            return;
-//        }
 
         // отправка списка файлов
         List<String> filenames = Files.list(file.getParent()).map(p -> p.getFileName().toString())

@@ -500,7 +500,6 @@ public class NettyController implements Initializable {
         long fileLength = myFile.toFile().length();
         long batchCount = (fileLength + BUFFER_SIZE - 1) / BUFFER_SIZE;
         if (batchCount == 0) {
-            //showErrorStringMessage(String.format("File %s is empty!", filename));
             log.error("file:{} is empty", filename);
             return;
         }
@@ -583,7 +582,6 @@ public class NettyController implements Initializable {
             log.debug("delete directory:\"{}\" from path:\"{}\"", filename, filePath);
         }
         log.info("File:{} was deleted on client", filePath);
-        //info.setText(String.format("File %s was deleted", filename));
     }
 
     public void deleteOnServer(ActionEvent actionEvent) throws IOException {
@@ -634,14 +632,10 @@ public class NettyController implements Initializable {
         Optional<String> result = dialog.showAndWait();
 
         result.ifPresent(newName -> {
-            //try {
             log.debug("try rename file:{} to file:{}", filename, newName);
             if (currentClientDir.resolve(filename).toFile().renameTo(new File(currentClientDir.resolve(newName).toString())))
-                //Files.move(currentClientDir.resolve(filename), currentClientDir.resolve(newName));
                 log.debug("rename file:{} to file:{} is successful", filename, newName);
-//            } catch (IOException e) {
-//                log.error("e", e);
-//            }
+
         });
     }
 
